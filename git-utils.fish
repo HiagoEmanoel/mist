@@ -1,8 +1,13 @@
-# @fish-lsp-disable 4004
+# @fish-lsp-disable 4004 2003
 if status is-interactive
+
+    set -e __git_status_async_data
+    set -g __git_prompt_async_items
+    set -g __git_worktree_last_mtime 0
+
     function __gitdir
 
-        set -g __git_worktree_dir # work as a cache, only aplies to work repos
+        set -g __git_worktree_dir # work as a cache
 
         if test -n "$GIT_DIR"
             echo $GIT_DIR
@@ -18,7 +23,7 @@ if status is-interactive
         set -l cut_pwd $PWD
         set -l ignore_dirs $HOME $TERMUX__ROOTFS_DIR (string split ':' $GIT_CEILING_DIRECTORIES)
 
-        for cut in (string length (string match -ra "/[^/]+" $PWD)[-1..1])
+        while test $cut_pwd != /
             # find .git dir in filesystem
             # this calculates the lenght of dir entry names and
             # cut pwd acording of the size, focusing in security
@@ -28,7 +33,7 @@ if status is-interactive
             if test -d $cut_pwd/.git # detect and verify .git directory
 
                 if ! test -f $cut_pwd/.git/HEAD -a -d $cut_pwd/.git/refs -a -d $cut_pwd/.git/objects
-                    break
+                    continue
                 end
 
                 echo $cut_pwd/.git
@@ -43,11 +48,12 @@ if status is-interactive
                 if string match -qr 'bare\s*=\s*true' $config_content
 
                     echo $cut_pwd
+                    set -g __git_worktree_dir $cut_pwd
                     return
                 end
             end
 
-            set cut_pwd (string sub -e -$cut $cut_pwd)
+            set cut_pwd (path dirname $cut_pwd)
         end
     end
 
@@ -103,49 +109,16 @@ if status is-interactive
         printf "%s\n" (string match -rg 'refs/(\w+)/(.+)' $ref_path) $short_hash
     end
 
-    function __git_state
-        # recives git directory and git info
-        # return the staged status bases on git staging
-        # and state (merging, rebase, etc)
-
-        set -l gitdir $argv[1]
-        set -l reftype $argv[2]
-        set -l refname $argv[3]
-
-        if test $reftype != heads
-            printf "%s\n" clean normal
-            return
-        end
-
-        set -l staging_status clean
-        set -l operation_status normal
-
-        set -l ref_time (path mtime -R $gitdir/refs/heads/$refname)
-        set -l index_time (path mtime -R $gitdir/index)
-
-        if test -z "$ref_time" -o -z "$index_time"
-            printf "%s\n" clean normal
-            return
-        end
-
-        if test $index_time -lt $ref_time
-            set staging_status staging
-        end
-
-        printf "%s\n" $staging_status $operation_status
-    end
-
     function __update_git_prompt_info
         # return git informations for prompt in this order:
         # ref type, name, short hash, staging state, operation state (like merge, rebase)
 
-        set -g __git_prompt_itens
+        set -g __git_prompt_items
 
         set -l gitdir (__gitdir)
         test -z "$gitdir"; and return
 
         set -l ref_info (__git_info $gitdir)
-        set -l ref_state (__git_state $gitdir $ref_info)
 
         # convert the internal format to a more common
         set -l reftype_names commit branch remote tag
@@ -153,14 +126,93 @@ if status is-interactive
         set -l type_index (contains -i $ref_info[1] commit heads remotes tags)
         set -l reftype $reftype_names[$type_index]
 
-        set -g __git_prompt_itens $reftype $ref_info[2..] $ref_state
+        set -g __git_prompt_items $reftype $ref_info[2..]
+    end
+
+    # this is the async logic
+    function __update_status_async
+
+        test -z "$__git_worktree_dir"
+
+        set -l worktree_identifier $__git_worktree_dir
+
+        if contains $worktree_identifier -- $__git_status_async_lock_list
+            set -g __git_status_await_call
+            return
+        end
+
+        set -aU __git_status_async_lock_list $__git_worktree_dir
+
+        set -l git_command "git status --porcelain=v2 --branch --short 2> /dev/null"
+        fish --private -c "set -U __git_status_async_data ($git_command) $worktree_identifier" & disown
+    end
+
+    # format the output of git ststus
+    function __async_git_status_handler --on-variable __git_status_async_data
+        set -l git_data $__git_status_async_data[..-2]
+        echo tet te teeto teto
+        set -g worktree_identifier $__git_status_async_data[-1]
+
+        if test -z "$__git_status_async_data"
+            return
+        end
+
+        if test $worktree_identifier != "$__git_worktree_dir"
+            return
+        end
+
+        set -l modify_status clean
+
+        if test (count $git_data) -gt 1
+            if string match -rq '^(?:\s|[ADM])[ADM]' $git_data[2..]
+                set modify_status dirty
+            else if string match -rq '^[ADM]\s' $git_data[2..]
+                set modify_status staging
+            end
+        end
+
+        set -l ahead (string match -rg '\[(?:ahead (\d).*)\]' "$git_data[1]")
+        set -l behind (string match -rg '\[.*(?:behind (\d))\]' "$git_data[1]")
+
+        set -g __git_prompt_async_items $modify_status $ahead $behind
+        commandline -f repaint
+        # remove lock and run the await call
+        set -l identify_index (contains -i $worktree_identifier $__git_status_async_lock_list)
+        if test -n "$identify_index"
+            set -e __git_status_async_lock_list[$identify_index]
+        end
+
+        if set -q __git_status_await_call
+            set -e __git_status_await_call
+            __update_status_async
+        end
+    end
+
+    function __git_trigger_postexec --on-event fish_postexec
+        # uses gitdir mtime to detect git changes
+        test -z "$__git_worktree_dir" -o -z "$__git_worktree_mtime"; and return
+
+        set -l git_worktree_mtime (path mtime $__git_worktree_dir)
+        if test git_worktree_mtime != $__git_worktree_last_mtime
+            __update_status_async
+        end
+
+        set -g __git_worktree_last_mtime $git_worktree_mtime
+
+        if set -q __git_status_await_call
+            set -e __git_status_await_call
+            __update_status_async
+        end
     end
 
     # triggers to only recalculat git whennecessary
     function __git_trigger_pwd --on-variable PWD
-        # detects if is in agit directory after PWD chamges
+        # detects if is in an git directory after PWD chamges
         if test -z "$__git_worktree_dir"
             __update_git_prompt_info
+            if test -n "$__git_worktree_dir"
+                __update_status_async
+            end
             return
         end
 
@@ -169,128 +221,16 @@ if status is-interactive
             return
         end
     end
-
-    function __git_trigger_postexec --on-event fish_postexec
-        # uses gitdir mtime to detect git changes
-        test -z "$__git_worktree_dir"; and return
-
-        set -l args (string split -n ' ' "$argv")
-        set -l argc (count $args)
-        test $argc = 1; and return
-
-        if test $args[1] = git
-            # detects read-only commands
-            contains -- $args[2] status diff ls-remote log show rev-parse
-            and return
-            # detects commands that only read by default, but can write with flags
-            if contains -- $args[2] branch tag remote config
-                test $argc -le 2; and return
-            end
-
-            __update_git_prompt_info
-            return
-        end
-
-        # detect changes by other commands than git
-        set -l git_mtime (path mtime -R $__git_worktree_dir/.git)
-        test -z "$git_mtime"; and return
-
-        if test $git_mtime -lt (math $CMD_DURATION / 1000)
-            __update_git_prompt_info
-        end
-    end
-
+    # update unformations on startup
     __update_git_prompt_info
-end
+    if test -n "$__git_worktree_dir"
 
-function format_git_prompt
-    # genetate the git prompt
-    test -z "$__git_prompt_itens"; and return
+        set -l worktree_identifier $__git_worktree_dir
 
-    # save argv before be consumed by argparse
-    set -l argv_bak "$argv"
-    argparse h/help c/charset= f/format= S/staging_char= -- $argv
-
-    if set -q _flag_help
-        # The help message defined above
-        printf "%s\n" "Usage: format_git_prompt [OPTIONS]" \
-            "" \
-            "Options:" \
-            "  -h, --help            Show this help message and exit" \
-            "  -c, --charset=STR     Set symbols for git references" \
-            "  -S, --staging_char=C  Set the character for staged change (default: \"+\")" \
-            "  -f, --format=FORMAT   The format string to use (default: %R%r%S)" \
-            "" \
-            "Charset format:" \
-            "  <commit> <branch> <remote> <tag> (default: @   󰓹)" \
-            "" \
-            "Format Specifiers:" \
-            "  %R  Reference symbol" \
-            "  %r  Reference name" \
-            "  %h  Commit hash" \
-            "  %S  Staging character"
-        return
-    end
-
-    # uses cached prompt if nothing changes
-    if test -n "$__git_prompt_cache"
-        if test "$__git_prompt_cache[1]" = "$__git_prompt_itens $argv_bak"
-            echo $__git_prompt_cache[2]
-            return
+        set -l identify_index (contains -i $worktree_identifier $__git_status_async_lock_list)
+        if test -n "$identify_index"
+            set -eU __git_status_async_lock_list[$identify_index]
         end
+        __update_status_async
     end
-
-    set -l reftype $__git_prompt_itens[1]
-    set -l refname $__git_prompt_itens[2]
-    set -l refhash $__git_prompt_itens[3]
-    set -l staging_status $__git_prompt_itens[4]
-
-    # set the staging character
-    set -l staging_char
-    if test $staging_status = staging
-        if set -q _flag_staging_char
-            set -- staging_char $_flag_staging_char
-        else
-            set staging_char '+'
-        end
-    end
-
-    # defines the symbol for git reference
-    set -l ref_charset @   󰓹
-
-    if set -q _flag_charset
-        set -- ref_charset (string split ' ' -- $_flag_charset)
-    end
-
-    set -l refchar ''
-    set -l refchar_index (contains -i $reftype commit branch remote tag)
-
-    if test -n "$refchar_index"
-        set -- refchar $ref_charset[$refchar_index]
-    end
-
-    # defines th output format
-    set -l output_format "%R%r%S"
-
-    set -q _flag_format; and set -- output_format $_flag_format
-    set -l output $output_format
-
-    set -l specifiers (string match -ra '%R|%r|%h|%S' -- $output_format)
-
-    for specifier in $specifiers
-        switch $specifier
-            case %R
-                set output (string replace -- '%R' "$refchar" $output)
-            case %r
-                set output (string replace -- '%r' "$refname" $output)
-            case %h
-                set output (string replace -- '%h' "$refhash" $output)
-            case %S
-                set output (string replace -- '%S' "$staging_char" $output)
-        end
-    end
-
-    set -g __git_prompt_cache "$__git_prompt_itens $argv_bak" "$output"
-
-    echo $output
 end
