@@ -1,102 +1,142 @@
 # @fish-lsp-disable 4004 2003
 if status is-interactive
 
-    set -e __git_status_async_data
-    set -g __git_prompt_async_items
-    set -g __git_worktree_last_mtime 0
+    set -g __mist_git_directory
+    set -g __mist_git_reference
+    set -g __mist_git_directory
+    set -g __mist_git_status false false 0 0
+    set -g __mist_git_needs_refresh false
 
-    function __gitdir
+    # commands that are ignored by posteexec
+    set -g __mist_git_black_list
+    set -a __mist_git_black_list ls ll la pwd dir vdir du df string ps pstree kill
+    set -a __mist_git_black_list cat less more tail head bat glow peek fastfetch
+    set -a __mist_git_black_list find fd locate which whereis type grep ripgrep rg
+    set -a __mist_git_black_list whoami groups id uptime free top htop btm neofetch
+    set -a __mist_git_black_list history clear exit jobs fg bg alias export set math apt pacman dnf pip
 
-        set -g __git_worktree_dir # work as a cache
+    set -g __mist_git_subcmd_black_list
+    set -a __mist_git_subcmd_black_list log reflog shortlog show-branch help
+    set -a __mist_git_subcmd_black_list status diff show ls-files ls-tree count-objects
+    set -a __mist_git_subcmd_black_list grep annotate blame verify-pack
+
+    function __mist_git_getdir
+        # return the git directory, and set the worktree fon nom-bare repos
+        set -g __mist_git_worktree
+        set worktree
+        set gitdir
+
+        if test -n "$GIT_WORK_TREE"
+            set worktree $GIT_WORK_TREE
+        end
 
         if test -n "$GIT_DIR"
-            echo $GIT_DIR
+            set gitdir $GIT_DIR
+            return
+        end
+
+        if test -n "$worktree" -a -n "$gitdir"
+            set __mist_git_worktree $worktree
+            set -g __mist_git_directory $gitdir
             return
         end
 
         if test -d .git
-            echo $PWD/.git
-            set -g __git_worktree_dir $PWD
+            if path filter -vqt file,dir $gitdir_location/{config,HEAD,objects,refs}
+                return
+            end
+            test -z "$worktree"; and set -g __mist_git_worktree $PWD
+            test -z "$gitdir"; and set -g __mist_git_directory $PWD/.git
+        end
+
+        set ignore_dirs $HOME $TERMUX__ROOTFS_DIR (string split ':' $GIT_CEILING_DIRECTORIES)
+
+        set splited_pwd $PWD
+
+        # generates every subpath from the PWD
+        while test $splited_pwd[-1] != /
+            set -a splited_pwd (path normalize $splited_pwd[-1]/..)
+            contains $splited_pwd[-1] $ignore_dirs; and break
+        end
+
+        set gitdir_location (path filter -d $splited_pwd/.git)[1]
+
+        if test -z "$gitdir_location" # detect bare repositories
+
+            set gitdir_candidate (path filter -f $splited_pwd/config)[1]
+            test -z "$gitdir_candidate"; and return
+
+            if path filter -vqt file,dir $gitdir_candidate/{config,HEAD,objects,refs}
+                return
+            end
+
+            read -lzn 200 config_content <$gitdir_candidate/config
+            if string match -qr 'bare\s*=\s*true' $config_content
+
+                test -z "$gitdir"; and set gitdir (path dirname $gitdir_candidate)
+                set -g __mist_git_directory $gitdir
+                return
+            end
+
             return
         end
 
-        set -l cut_pwd $PWD
-        set -l ignore_dirs $HOME $TERMUX__ROOTFS_DIR (string split ':' $GIT_CEILING_DIRECTORIES)
-
-        while test $cut_pwd != /
-            # find .git dir in filesystem
-            # this calculates the lenght of dir entry names and
-            # cut pwd acording of the size, focusing in security
-
-            contains -- $cut_pwd $ignore_dirs; and break
-
-            if test -d $cut_pwd/.git # detect and verify .git directory
-
-                if ! test -f $cut_pwd/.git/HEAD -a -d $cut_pwd/.git/refs -a -d $cut_pwd/.git/objects
-                    continue
-                end
-
-                echo $cut_pwd/.git
-                set -g __git_worktree_dir $cut_pwd
-                break
-
-            else if test -f $cut_pwd/config # detect bare repositories
-                if ! test -f $cut_pwd/HEAD -a -d $cut_pwd/refs -a -d $cut_pwd/objects
-                    continue
-                end
-                read -lzn 200 config_content <$cut_pwd/config
-                if string match -qr 'bare\s*=\s*true' $config_content
-
-                    echo $cut_pwd
-                    set -g __git_worktree_dir $cut_pwd
-                    return
-                end
-            end
-
-            set cut_pwd (path dirname $cut_pwd)
+        if path filter -vqt file,dir $gitdir_location/{config,HEAD,objects,refs}
+            return
         end
+
+        test -z "$worktree"; and set worktree (path dirname $gitdir_location)
+        test -z "$gitdir"; and set gitdir $gitdir_location
+
+        set -g __mist_git_worktree $worktree
+        set -g __mist_git_directory $gitdir
     end
 
-    function __git_info
-        # return git informations (type name and hash) in an array
-        set -l gitdir $argv[1]
-        test -z "$gitdir"; and return 2
+    function __mist_git_getref
+        # return git reference (type name and hash) in an array
+        set gitdir $__mist_git_directory
+        test -z "$gitdir"; and return
 
+        set -g __mist_git_reference
         read -l githead <"$gitdir/HEAD"
 
         if string match -qr '^[[:xdigit:]]+$' $githead
             # Verifys if the HEAD has a hash and verify
             # if the referance is in packed_refs and extract the informations
 
-            set -l short_hash (string sub -l 7 $githead)
+            set short_hash (string sub -l 7 $githead)
 
             if test -f "$gitdir/packed-refs"
-                set -l pack_ref (string match -rg "$githead refs/(\w+)/(.+)" <$gitdir/packed-refs)
+                set pack_ref (string match -rg "$githead refs/(\w+)/(.+)" <$gitdir/packed-refs)
 
                 if test -n "$pack_ref"
-                    printf "%s\n" $pack_ref $short_hash
+
+                    set reftype (string sub -e -1 $pack_ref[1])
+                    set refname $pack_ref[2]
+
+                    set -g __mist_git_reference $reftype $refname $short_hash
                     return
                 end
             end
 
             if test -d $gitdir/refs/remotes # detect if the detached state is on a remote
-                set -l remotes (string match -v '*/HEAD' $gitdir/refs/remotes/*/*)
+                set remotes (string match -v '*/HEAD' $gitdir/refs/remotes/*/*)
 
                 for remote in $remotes
 
-                    if test (string collect < $remote) = $githead
-                        printf "%s\n" remotes (string match -rg '/(\w+/\w+)$' $remote) $short_hash
+                    if string match -q $githead <$remote
+                        set -g __mist_git_reference remote (string match -rg '/(\w+/\w+)$' $remote) $short_hash
                         return
                     end
                 end
             end
 
-            printf "%s\n" commit $short_hash $short_hash
+            set -g __mist_git_reference commit $short_hash $short_hash
             return
         end
 
-        set -l ref_path (string sub -s 6 $githead) # get refpath
-        set -l refhash
+        set ref_path (string sub -s 6 $githead) # get refpath
+        set refhash
 
         if test -f "$gitdir/$ref_path" # detects unborn repositories
             read refhash <"$gitdir/$ref_path"
@@ -104,133 +144,139 @@ if status is-interactive
             set refhash 0000000
         end
 
-        set -l short_hash (string sub -l 7 $refhash)
+        set short_hash (string sub -l 7 $refhash)
+        set ref_path_data (string match -rg 'refs/(\w+)/(.+)' $ref_path)
 
-        printf "%s\n" (string match -rg 'refs/(\w+)/(.+)' $ref_path) $short_hash
+        set reftype $ref_path_data[1]
+        set refname $ref_path_data[2]
+
+        set reftype_names branch tag
+        set type_index (contains -i $reftype heads tags)
+        set reftype $reftype_names[$type_index]
+
+        set -g __mist_git_reference $reftype $refname $short_hash
     end
 
-    function __update_git_prompt_info
-        # return git informations for prompt in this order:
-        # ref type, name, short hash, staging state, operation state (like merge, rebase)
+    function __mist_git_emitter
+        test -z "$__mist_git_worktree"; and return
+        set lock_list $__mist_git_lock
 
-        set -g __git_prompt_items
+        if test -n "$lock_list"
+            # a garbage collector that cleans all dead fish sessions
+            set pid_list (string match -r '^\d+' $lock_list)
+            set alive_pids (path filter /proc/$pid_list/comm)
 
-        set -l gitdir (__gitdir)
-        test -z "$gitdir"; and return
+            set validated_pids
+            for pid in $alive_pids
+                # test if the proc_alive processes are from fish
+                if string match -q fish <$pid
+                    set -a validated_pids $pid
+                end
+            end
 
-        set -l ref_info (__git_info $gitdir)
+            set ok_pids (string match -rg '/proc/(\d+)/comm' $validated_pids)
+            set regex_filter (string join '|' $ok_pids)
 
-        # convert the internal format to a more common
-        set -l reftype_names commit branch remote tag
+            set lock_list (string match -r "(?:$regex_filter):.+" $lock_list)
+        end
 
-        set -l type_index (contains -i $ref_info[1] commit heads remotes tags)
-        set -l reftype $reftype_names[$type_index]
+        set worktree $__mist_git_worktree
+        set new_entry $fish_pid:$worktree
 
-        set -g __git_prompt_items $reftype $ref_info[2..]
+        if contains $worktree (string match -rg '^\d+:(.+)' $lock_list)
+            set -g __mist_git_needs_refresh true
+        else
+            set -a lock_list $new_entry
+            set git_command "git status --porcelain=v2 --branch --short 2> /dev/null"
+            fish --private -c "set -U __mist_git_status_data ($git_command) $worktree; kill -SIGUSR1 $fish_pid" &
+        end
+
+        set -U __mist_git_lock $lock_list
     end
 
-    # this is the async logic
-    function __update_status_async
+    function __mist_git_handler --on-signal SIGUSR1
+        # handlers the output of backgroundvcommands
+        test -z "$__mist_git_worktree"; and return
+        test -z "$__mist_git_status_data"; and return
 
-        test -z "$__git_worktree_dir"
+        set git_data $__mist_git_status_data[..-2]
+        set worktree $__mist_git_status_data[-1]
 
-        set -l worktree_identifier $__git_worktree_dir
-
-        if contains $worktree_identifier -- $__git_status_async_lock_list
-            set -g __git_status_await_call
+        if test $worktree != "$__mist_git_worktree"
             return
         end
 
-        set -aU __git_status_async_lock_list $__git_worktree_dir
-
-        set -l git_command "git status --porcelain=v2 --branch --short 2> /dev/null"
-        fish --private -c "set -U __git_status_async_data ($git_command) $worktree_identifier" & disown
-    end
-
-    # format the output of git ststus
-    function __async_git_status_handler --on-variable __git_status_async_data
-        set -l git_data $__git_status_async_data[..-2]
-        echo tet te teeto teto
-        set -g worktree_identifier $__git_status_async_data[-1]
-
-        if test -z "$__git_status_async_data"
-            return
-        end
-
-        if test $worktree_identifier != "$__git_worktree_dir"
-            return
-        end
-
-        set -l modify_status clean
+        set is_dirty false
+        set is_staging false
 
         if test (count $git_data) -gt 1
             if string match -rq '^(?:\s|[ADM])[ADM]' $git_data[2..]
-                set modify_status dirty
-            else if string match -rq '^[ADM]\s' $git_data[2..]
-                set modify_status staging
+                set is_dirty true
+            end
+
+            if string match -rq '^[ADM]\s' $git_data[2..]
+                set is_staging true
             end
         end
 
-        set -l ahead (string match -rg '\[(?:ahead (\d).*)\]' "$git_data[1]")
-        set -l behind (string match -rg '\[.*(?:behind (\d))\]' "$git_data[1]")
+        set ahead (string match -rg '\[(?:ahead (\d).*)\]' "$git_data[1]")
+        set behind (string match -rg '\[.*(?:behind (\d))\]' "$git_data[1]")
 
-        set -g __git_prompt_async_items $modify_status $ahead $behind
+        test -z "$ahead"; and set ahead 0
+        test -z "$behind"; and set behind 0
+
+        set -g __mist_git_status $is_dirty $is_staging $ahead $behind
         commandline -f repaint
+
         # remove lock and run the await call
-        set -l identify_index (contains -i $worktree_identifier $__git_status_async_lock_list)
-        if test -n "$identify_index"
-            set -e __git_status_async_lock_list[$identify_index]
-        end
+        set new_lock_list (string match -v "$fish_pid:$worktree" $__mist_git_lock)
+        set -U __mist_git_lock $new_lock_list
 
-        if set -q __git_status_await_call
-            set -e __git_status_await_call
-            __update_status_async
+        if test $__mist_git_needs_refresh = true
+            set -g __mist_git_needs_refresh false
+            __mist_git_emitter
         end
     end
 
-    function __git_trigger_postexec --on-event fish_postexec
-        # uses gitdir mtime to detect git changes
-        test -z "$__git_worktree_dir" -o -z "$__git_worktree_mtime"; and return
+    set -g __mist_last_pwd $PWD
+    function __mist_git_trigger_postexec --on-event fish_postexec
+        # atualizes git after every command
+        set args (string split ' ' $argv)
 
-        set -l git_worktree_mtime (path mtime $__git_worktree_dir)
-        if test git_worktree_mtime != $__git_worktree_last_mtime
-            __update_status_async
-        end
-
-        set -g __git_worktree_last_mtime $git_worktree_mtime
-
-        if set -q __git_status_await_call
-            set -e __git_status_await_call
-            __update_status_async
-        end
-    end
-
-    # triggers to only recalculat git whennecessary
-    function __git_trigger_pwd --on-variable PWD
-        # detects if is in an git directory after PWD chamges
-        if test -z "$__git_worktree_dir"
-            __update_git_prompt_info
-            if test -n "$__git_worktree_dir"
-                __update_status_async
+        if test "$__mist_last_pwd" != "$PWD"
+            set -g __mist_last_pwd "$PWD"
+            if ! string match -q "$__mist_git_worktree/*" "$PWD"
+                set -g __mist_git_status false false 0 0
             end
-            return
+            __mist_git_getdir
+            if test -z "$__mist_git_worktree"
+                set -g __mist_git_reference
+                set -g __mist_git_status false false 0 0
+                return
+            end
         end
 
-        if ! string match -q "$__git_worktree_dir/*" $PWD
-            __update_git_prompt_info
-            return
+        test -z "$__mist_git_worktree"; and return
+
+        # disregard read-only commands
+        if ! contains -- '>' $args; or contains -- '>>' $args
+            if test "$args[1]" = git -o "$args[1]" = g
+                if contains -- "$args[2]" $__mist_git_subcmd_black_list
+                    return
+                end
+            else
+                if contains -- "$args[1]" $__mist_git_black_list
+                    return
+                end
+            end
         end
+
+        __mist_git_getref
+        __mist_git_emitter
     end
-    # update unformations on startup
-    __update_git_prompt_info
-    if test -n "$__git_worktree_dir"
 
-        set -l worktree_identifier $__git_worktree_dir
-
-        set -l identify_index (contains -i $worktree_identifier $__git_status_async_lock_list)
-        if test -n "$identify_index"
-            set -eU __git_status_async_lock_list[$identify_index]
-        end
-        __update_status_async
-    end
+    # update git informations on startup
+    __mist_git_getdir
+    __mist_git_getref
+    __mist_git_emitter
 end
