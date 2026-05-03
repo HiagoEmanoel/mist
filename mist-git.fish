@@ -66,8 +66,7 @@ if status is-interactive
         log reflog shortlog show-branch help \
         status diff show ls-files ls-tree \
         count-objects grep annotate blame \
-        verify-pack remote config rev-parse \
-        branch tag list worktree
+        verify-pack config rev-parse list
 
     function __mist_git_getdir
         # Get the current git directory and worktree

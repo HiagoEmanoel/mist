@@ -51,7 +51,7 @@ if status is-interactive
         set local_ts (math $unix_timestamp + $__mist_timezone)
 
         # filter the specifiers and make then unique
-        set specifiers (string match -rga -- '(?<!%)%([dwMNyYhHms])' $output)
+        set specifiers (string match -rga -- '(?<!%)%([dwMyYHhIms])' $output)
         set specifiers (string match -rga -- '(\w)(?:\s*\1)*' (path sort $specifiers))
 
         for spec in $specifiers
@@ -104,7 +104,7 @@ if status is-interactive
 
         # Cache processing
         if test "$__mist_git_prompt_cache[1]" = "$__mist_git_ref$__mist_git_status$argv_all"
-            test -z "$__mist_git_worktree"; and return
+            test -z "$__mist_git_wtid"; and return
 
             set output $__mist_git_prompt_cache[2..]
 
