@@ -223,10 +223,14 @@ if status is-interactive
 
     function __mist_git_wtid_updater
         # Update wtid after change the PWD
+        if test "$__mist_last_pwd" = "$PWD"
+            return
+        end
+
         set last_wtid "$__mist_git_wtid"
         __mist_git_getdir
 
-        if test "$__mist_last_pwd" = "$PWD" -a "$last_wtid" = "$__mist_git_wtid"
+        if test "$last_wtid" = "$__mist_git_wtid"
             return
         end
 
@@ -246,15 +250,15 @@ if status is-interactive
 
                 # Remove unused worktree-specific variables
                 if ! string match -rq ":$last_wtid\$" $__mist_git_sessions
-                    set -eU "__mist_git_data_$last_wtid"
-                    set -eU "__mist_git_lock_$last_wtid"
-                    set -eU "__mist_git_refresh_$last_wtid"
+                    set -eU "__mist_git_data_$last_wtid" "__mist_git_lock_$last_wtid" "__mist_git_refresh_$last_wtid"
                 end
             end
         end
 
         # Exit if is not in a git repo
-        test -z "$__mist_git_wtid"; and return
+        test -z "$__mist_git_wtid"
+        and return
+
         set wtid "$__mist_git_wtid"
 
         # Updates the global list
