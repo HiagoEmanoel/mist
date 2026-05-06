@@ -251,6 +251,7 @@ if status is-interactive
                 # Remove unused worktree-specific variables
                 if ! string match -rq ":$last_wtid\$" $__mist_git_sessions
                     set -eU "__mist_git_data_$last_wtid" "__mist_git_lock_$last_wtid" "__mist_git_refresh_$last_wtid"
+
                 end
             end
         end
@@ -297,7 +298,6 @@ if status is-interactive
             end
         end
     end
-
     function __mist_git_trigger_postexec --on-event fish_postexec
         __mist_git_wtid_updater
         test -z "$__mist_git_wtid"; and return
@@ -318,9 +318,9 @@ if status is-interactive
             end
         end
 
+        __mist_git_getref
         __mist_git_emitter
     end
-
     function __mist_git_cleaner --on-event fish_exit
         set session_list $__mist_git_sessions
         set session_list (string match -rv "^$fish_pid" $session_list)
