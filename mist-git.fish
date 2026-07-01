@@ -1,10 +1,12 @@
 # @fish-lsp-disable 4004 2003 3003 4006
 if status is-interactive
     # Global state
-    set -g __mist_git_wt # Current worktree directory
-    set -g __mist_git_dir # Current .git directory
-    set -g __mist_git_ref # Current branch/tag/hash
-    set -g __mist_git_status false false 0 0 # dirty, staging, ahead, behind
+    set -e __mist_git_wt \
+        __mist_git_dir \
+        __mist_git_ref \
+        __mist_last_pwd_mtime
+
+    set -g __mist_git_status false false 0 0
     set -g __mist_last_pwd $PWD
 
     if ! set -q __mist_git_timeout
@@ -35,7 +37,6 @@ if status is-interactive
         set gitdir
         set checks config HEAD objects refs
 
-        # Dynamic path filter: remove specific checks if env vars are set
         test -n "$GIT_OBJECT_DIRECTORY"
         and set -e checks[(contains -i objects $checks)]
 
@@ -106,7 +107,7 @@ if status is-interactive
     end
 
     function __mist_git_getref
-        # Return git reference using high-performance manual parsing
+        # Return git reference
         set gitdir $__mist_git_dir
         test -z "$gitdir"
         and return
@@ -254,7 +255,9 @@ if status is-interactive
     function __mist_git_trigger_postexec --on-event fish_postexec
         set args (string split ' ' "$argv" | string match -r '\w+')
 
-        if test "$__mist_last_pwd" != "$PWD"
+        if test "$__mist_last_pwd" != "$PWD" -o (path mtime $__mist_last_pwd) != __mist_last_pwd_mtime
+            set __mist_last_pwd_mtime (path mtime $__mist_last_pwd)
+
             set -g __mist_last_pwd "$PWD"
             __mist_git_getdir
 

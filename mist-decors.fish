@@ -1,5 +1,97 @@
 # @fish-lsp-disable 4004
 if status is-interactive
+    # Secondary widgets and decorative functions
+    set -e __mist_clock_cache __mist_timezone
+
+    function mist_date
+        # format date
+        set options h/help n/newline
+        argparse $options -- $argv
+        or return
+
+        if set -q _flag_h
+            printf "%b\n" \
+                "Usage: \e[1;33mmist_date\e[0m [OPTIONS] [FORMAT]" \
+                "" \
+                "\e[1mOptions:\e[0m" \
+                "  \e[33m-h, --help\e[0m     Show this help message" \
+                "  \e[33m-n, --newline\e[0m  Print with newline" \
+                "" \
+                "\e[1mFormat Specifiers:\e[0m" \
+                "  \e[32m%d\e[0m  Day (01-31)    \e[32m%H\e[0m  Hour (24h)" \
+                "  \e[32m%w\e[0m  Weekday (Sun)  \e[32m%H\e[0m  Hour (12h)" \
+                "  \e[32m%M\e[0m  Month (jan)    \e[32m%I\e[0m  AM/PM" \
+                "  \e[32m%Y\e[0m  Full Year      \e[32m%m\e[0m  Minute " \
+                "  \e[32m%Y\e[0m  Short Year     \e[32m%s\e[0m  Second" \
+                "  \e[32m%%\e[0m  Just a %"
+            return
+        end
+
+        # Set the default output
+        test -n "$argv"
+        and set output $argv
+        or set output "%w %d/%M/%Y %H:%m:%s"
+
+        set unix_timestamp (math (path mtime -R /proc) + 1)
+
+        # Init the timezone and date
+        if test -z "$__mist_clock_date" -o -z "$__mist_timezone"
+            set date_out (string split ' ' (date "+%H %d %a %b %y %Y"))
+
+            set -g __mist_clock_date $date_out[2..]
+
+            set hour_now (math -s0 $unix_timestamp / 3600 % 24)
+            set -g __mist_timezone (math \($date_out[1] - $hour_now\) x 3600)
+        end
+
+        set date $__mist_clock_date
+
+        set local_ts (math $unix_timestamp + $__mist_timezone)
+
+        # filter the specifiers and make then unique
+        set specifiers (string match -rga -- '(?<!%)%([dwMyYHhIms])' $output)
+        set specifiers (string match -rga -- '(\w)(?:\s*\1)*' (path sort $specifiers))
+
+        for spec in $specifiers
+            switch $spec
+                case d
+                    set val "$date[1]"
+                case w
+                    set val "$date[2]"
+                case M
+                    set val "$date[3]"
+                case y
+                    set val "$date[4]"
+                case Y
+                    set val "$date[5]"
+                case H
+                    set hour (math -s 0 $local_ts / 3600 % 24)
+                    set val (printf "%02d" $hour)
+                case h
+                    set hour (math -s 0 $local_ts / 3600 % 24 % 12)
+                    set val (printf "%02d" (math "$hour % 12"))
+                case I
+                    set hour (math -s 0 $local_ts / 3600 % 24)
+                    test $hour -ge 12
+                    and set val PM
+                    or set val AM
+                case m
+                    set min (math -s 0 $local_ts / 60 % 60)
+                    set val (printf "%02d" $min)
+                case s
+                    set sec (math "$local_ts % 60")
+                    set val (printf "%02d" $sec)
+            end
+            set output (string replace -ra -- "(?<!%)%$spec" "$val" $output)
+        end
+
+        set output (string replace -ra -- '%(%+)' '$1' $output)
+
+        set -q _flag_n
+        and printf "%b\n" $output
+        or printf "%b" "$output"
+    end
+
     function mist_line
         # Print a line of the given string
         set options h/help p/pad= s/size= a/aling= n/newline

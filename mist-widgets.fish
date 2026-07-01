@@ -1,97 +1,139 @@
-# @fish-lsp-disable 4004
+# @fish-lsp-disable 4004 2003
 if status is-interactive
+    # The main mist widgets
+    set -e __mist_pwd_cache __mist_git_ref_date __mist_git_status_cache __mist_login_cache
 
-    # clear all caches
-    set -e __mist_pwd_cache __mist_clock_cache __mist_git_ref_date __mist_git_status_cache __mist_timezone
+    function mist_login
+        # Generates a login string
+        set argv_all $argv
 
-    function mist_date
-        # format date
         set options h/help n/newline
         argparse $options -- $argv
         or return
 
-        # 3. Help (Seguindo o estilo visual das outras widgets)
         if set -q _flag_h
             printf "%b\n" \
-                "Usage: \e[1;33mmist_date\e[0m [OPTIONS] [FORMAT]" \
+                "Usage: \e[1;33mmist_login\e[0m [OPTIONS] [FORMAT]" \
                 "" \
                 "\e[1mOptions:\e[0m" \
                 "  \e[33m-h, --help\e[0m     Show this help message" \
                 "  \e[33m-n, --newline\e[0m  Print with newline" \
                 "" \
                 "\e[1mFormat Specifiers:\e[0m" \
-                "  \e[32m%d\e[0m  Day (01-31)    \e[32m%H\e[0m  Hour (24h)" \
-                "  \e[32m%w\e[0m  Weekday (Sun)  \e[32m%H\e[0m  Hour (12h)" \
-                "  \e[32m%M\e[0m  Month (jan)    \e[32m%I\e[0m  AM/PM" \
-                "  \e[32m%Y\e[0m  Full Year      \e[32m%m\e[0m  Minute " \
-                "  \e[32m%Y\e[0m  Short Year     \e[32m%s\e[0m  Second" \
+                "  \e[32m%u\e[0m  User name" \
+                "  \e[32m%h\e[0m  Hostname" \
+                "  \e[32m%s\e[0m  The distro symbol" \
                 "  \e[32m%%\e[0m  Just a %"
+            return
+        end
+
+        if test "$argv_all" = "$__mist_login_cache[1]" -a -n "$__mist_login_cache[2]"
+            set output $__mist_login_cache[2..]
+
+            set -q _flag_n
+            and printf "%b\n" $output
+            or printf "%b" "$output"
+
             return
         end
 
         # Set the default output
         test -n "$argv"
         and set output $argv
-        or set output "%w %d/%M/%Y %H:%m:%s"
+        or set output "[%s] %h@%u"
 
-        set unix_timestamp (math (path mtime -R /proc) + 1)
-
-        # Init the timezone and date
-        if test -z "$__mist_clock_date" -o -z "$__mist_timezone"
-            set date_out (string split ' ' (date "+%H %d %a %b %y %Y"))
-
-            set -g __mist_clock_date $date_out[2..]
-
-            set hour_now (math -s0 $unix_timestamp / 3600 % 24)
-            set -g __mist_timezone (math \($date_out[1] - $hour_now\) x 3600)
-        end
-
-        set date $__mist_clock_date
-
-        set local_ts (math $unix_timestamp + $__mist_timezone)
-
-        # filter the specifiers and make then unique
-        set specifiers (string match -rga -- '(?<!%)%([dwMyYHhIms])' $output)
+        set specifiers (string match -rga -- '(?<!%)%([uhs])' $output)
         set specifiers (string match -rga -- '(\w)(?:\s*\1)*' (path sort $specifiers))
 
         for spec in $specifiers
             switch $spec
-                case d
-                    set val "$date[1]"
-                case w
-                    set val "$date[2]"
-                case M
-                    set val "$date[3]"
-                case y
-                    set val "$date[4]"
-                case Y
-                    set val "$date[5]"
-                case H
-                    set hour (math -s 0 $local_ts / 3600 % 24)
-                    set val (printf "%02d" $hour)
-                case h
-                    set hour (math -s 0 $local_ts / 3600 % 24 % 12)
-                    set val (printf "%02d" (math "$hour % 12"))
-                case I
-                    set hour (math -s 0 $local_ts / 3600 % 24)
-                    test $hour -ge 12
-                    and set val PM
-                    or set val AM
-                case m
-                    set min (math -s 0 $local_ts / 60 % 60)
-                    set val (printf "%02d" $min)
                 case s
-                    set sec (math "$local_ts % 60")
-                    set val (printf "%02d" $sec)
+                    set str $__mist_login_distrosym
+                case u
+                    set str $USER
+                case h
+                    set str $hostname
             end
-            set output (string replace -ra -- "(?<!%)%$spec" "$val" $output)
+            set output (string replace -ra -- "(?<!%)%$spec" "$str" $output)
         end
 
         set output (string replace -ra -- '%(%+)' '$1' $output)
 
+        set -g __mist_login_cache "$argv_all" $output
+
         set -q _flag_n
         and printf "%b\n" $output
         or printf "%b" "$output"
+    end
+
+    # Find the symbol of the distro
+    if test -z "$__mist_login_distrosym"
+        set raw_list \
+            "
+        alpine               
+        amazon               
+        android              
+        arch                 
+        artix                
+        centos               
+        debian               
+        deepin               
+        devuan               
+        elementary           
+        endeavouros          
+        endless              
+        fedora               
+        freebsd              
+        gentoo               
+        guix                 
+        kali                 
+        linuxmint            
+        mageia               
+        magpie               
+        manjaro              
+        nixos                
+        openbsd              
+        opensuse             
+        opensuse-leap        
+        opensuse-tumbleweed  
+        parrot               
+        parabola             
+        pop                  
+        puresos              
+        raspbian             
+        rhel                 
+        rocky                
+        sabayon              
+        slackware            
+        solus                
+        ubuntu               
+        void                 
+        zorin                
+        "
+        set namelist (string match -ra '\w+' $raw_list)
+        set symbolist (string match -ra '[^\w\s]' $raw_list)
+
+        if test -n "$ANDROID_ROOT"
+            set -f distro android
+
+        else if test -f /etc/os-release
+            set -f distro (string match -rg '^ID=(\w+)' < /etc/os-release)
+        end
+
+        if test -n "$distro"
+            set -f index (contains -i -- $distro $namelist)
+
+            if test -n "$index"
+                set -f distrosym $symbolist[$index]
+            else
+                set -f distrosym 
+            end
+
+        else
+            set -f distrosym 
+        end
+
+        set -U __mist_login_distrosym $distrosym
     end
 
     function mist_git
@@ -179,7 +221,14 @@ if status is-interactive
         set is_staging $status_data[2]
 
         set ahead $status_data[3]
+        if test -z "$ahead"
+            set ahead 0
+        end
+
         set behind $status_data[4]
+        if test -z "$behind"
+            set behind 0
+        end
 
         if set -q _flag_D
             echo "ref_data: $ref_data" >&2
@@ -308,13 +357,13 @@ if status is-interactive
                 "  \e[33m-n, --newline\e[0m    Print each output on a new line" \
                 "" \
                 "\e[1mFormat Specifiers:\e[0m" \
-                "  \e[32m%S\e[0m  Context symbol (Home / Generic)" \
+                "  \e[32m%s\e[0m  Context symbol (Home / Generic)" \
                 "  \e[32m%t\e[0m  The home name or tilde (~)" \
                 "  \e[32m%p\e[0m  Parent path (relative to home if applicable)" \
                 "  \e[32m%d\e[0m  Current directory name" \
                 "" \
                 "\e[1mExamples:\e[0m" \
-                "  \$ mist_pwd \"%S %t%p%d\"                   \e[0m# Standard look\e[0m" \
+                "  \$ mist_pwd \"%s %t%p%d\"                   \e[0m# Standard look\e[0m" \
                 "  ~/mist/tools" \
                 "  \$ mist_pwd -s \" > \" \"%p\e[32m%d\e[0m\"               \e[0m# Arrow separated path\e[0m" \
                 "  > mist > tools"
@@ -364,7 +413,7 @@ if status is-interactive
         # Default prompt
         test -n "$argv"
         and set output $argv
-        or set output %S %t%p%d
+        or set output "%s %t%p%d"
 
         set homepath (string escape --style=regex -- "$HOME")
 
@@ -409,7 +458,7 @@ if status is-interactive
 
         set dirpath (string replace -a -- / "$separator" $dirpath)
 
-        set output (string replace -a -- "%S" "$symbol" $output)
+        set output (string replace -a -- "%s" "$symbol" $output)
         set output (string replace -a -- "%p" "$dirpath" $output)
         set output (string replace -a -- "%d" "$dirname" $output)
         set output (string replace -a -- "%t" "$tilde" $output)
