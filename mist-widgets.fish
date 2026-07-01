@@ -98,13 +98,18 @@ if status is-interactive
         # format git information
         set argv_all "$argv"
 
-        set options h/help b/branch= c/commit r/remote t/tag d/dirty= s/staging= a/ahead= i/behind= n/newline
+        set options h/help b/branch= c/commit r/remote t/tag d/dirty= s/staging= a/ahead= i/behind= n/newline D/debug
         argparse $options -- $argv
         or return
 
+        if set -q _flag_D
+            set -e __mist_git_prompt_cache
+        end
+
         # Cache processing
         if test "$__mist_git_prompt_cache[1]" = "$__mist_git_ref$__mist_git_status$argv_all"
-            test -z "$__mist_git_wtid"; and return
+            test -z "$__mist_git_wt"
+            and return
 
             set output $__mist_git_prompt_cache[2..]
 
@@ -175,6 +180,20 @@ if status is-interactive
 
         set ahead $status_data[3]
         set behind $status_data[4]
+
+        if set -q _flag_D
+            echo "ref_data: $ref_data" >&2
+            echo "reftype: $reftype" >&2
+            echo "refname: $refname" >&2
+            echo "refhash: $refhash" >&2
+
+            echo "status_data: $status_data" >&2
+            echo "is_dirty: $is_dirty" >&2
+            echo "is_staging: $is_staging" >&2
+
+            echo "ahead: $ahead" >&2
+            echo "behind: $behind" >&2
+        end
 
         if string match -rq '(?<!%)%C' $output
             test "$is_dirty" = false -a "$is_staging" = true
@@ -306,7 +325,7 @@ if status is-interactive
         if test "$__mist_pwd_cache[1]" = "$PWD$argv_all" -a -n "$__mist_pwd_cache"
             set output $__mist_pwd_cache[2..]
 
-            set -q _flag_n # Cache processing
+            set -q _flag_n
             and printf "%b\n" $output
             or printf "%b" "$output"
 

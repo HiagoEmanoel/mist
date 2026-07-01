@@ -1,81 +1,47 @@
 # @fish-lsp-disable 4004 2003 3003 4006
-
-# This function must be available to subshells
-function __mist_git_runner
-    set wtid $argv[1]
-    test -z "$wtid"; and return
-
-    set git_out (git status --porcelain=v2 --branch --short 2>/dev/null)
-
-    set is_dirty false
-    set is_staging false
-
-    if test (count $git_out) -gt 1
-        # Check for modified/added files in worktree
-        if string match -rq '^(?:\s|[ADM])[ADM]' $git_out[2..]
-            set is_dirty true
-        end
-        if string match -rq '^[ADM]\s' $git_out[2..]
-            set is_staging true
-        end
-    end
-
-    set ahead (string match -rg '\[(?:ahead (\d).*)\]' "$git_out[1]")
-    set behind (string match -rg '\[.*(?:behind (\d))\]' "$git_out[1]")
-
-    test -z "$ahead"; and set ahead 0
-    test -z "$behind"; and set behind 0
-
-    if set -qU __mist_git_refresh_$wtid
-        set -eU __mist_git_refresh_$wtid
-
-        if test "$argv[2]" != --no-refresh
-            __mist_git_runner $wtid --no-refresh
-        end
-    end
-
-    set -eU __mist_git_lock_$wtid
-
-    # Apply data to the universal variable slices
-    set data_var "__mist_git_data_$wtid"
-    set -U {$data_var}[4..7] $is_dirty $is_staging $ahead $behind
-end
-
 if status is-interactive
-    set -e __mist_git_dir \
-        __mist_git_wtid \
-        __mist_git_ref \
-        __mist_last_pwd
+    # Global state
+    set -g __mist_git_wt # Current worktree directory
+    set -g __mist_git_dir # Current .git directory
+    set -g __mist_git_ref # Current branch/tag/hash
+    set -g __mist_git_status false false 0 0 # dirty, staging, ahead, behind
+    set -g __mist_last_pwd $PWD
 
-    functions -e __mist_git_handle
-    set -g __mist_git_status false false 0 0
+    if ! set -q __mist_git_timeout
+        set -g __mist_git_timeout 10
+    end
 
+    # Blacklist configuration
     set -g __mist_git_black_list \
         ls ll la pwd dir vdir du df string ps pstree kill \
         cat less more tail head bat glow peek fastfetch \
         find fd locate which whereis type grep ripgrep rg \
         whoami groups id uptime free top htop btm neofetch \
         history clear exit jobs fg bg alias export set math \
-        apt pacman dnf pip npm rsync \
-        unzip tar zip 7z xdg-open open man tldr info \
+        apt pacman dnf pip npm rsync unzip tar zip 7z xdg-open \
         "[" _ and argparse begin break builtin case command \
         continue else end eval exec for function if not \
         or read return status switch test time while
 
     set -g __mist_git_subcmd_black_list \
-        log reflog shortlog show-branch help \
-        status diff show ls-files ls-tree \
-        count-objects grep annotate blame \
+        log reflog shortlog show-branch help status diff show \
+        ls-files ls-tree count-objects grep annotate blame \
         verify-pack config rev-parse list
 
     function __mist_git_getdir
-        # Get the current git directory and worktree
-        set -e __mist_git_wtid \
-            __mist_git_dir \
-            worktree \
-            gitdir
+        # Return the git directory and set the worktree
+        set -e __mist_git_wt __mist_git_dir
+        set worktree
+        set gitdir
+        set checks config HEAD objects refs
 
-        # Process user-seted git info
+        # Dynamic path filter: remove specific checks if env vars are set
+        test -n "$GIT_OBJECT_DIRECTORY"
+        and set -e checks[(contains -i objects $checks)]
+
+        test -n "$GIT_INDEX_FILE"
+        and set -e checks[(contains -i index $checks)]
+
         if test -n "$GIT_WORK_TREE"
             set worktree $GIT_WORK_TREE
         end
@@ -85,78 +51,71 @@ if status is-interactive
         end
 
         if test -n "$worktree" -a -n "$gitdir"
-            set -g __mist_git_wtid (string escape --style=var $worktree)
+            set -g __mist_git_wt $worktree
             set -g __mist_git_dir $gitdir
             return
         end
 
-        # Fast verification
+        # Fast verification in current PWD
         if test -d .git
-            if path filter -vqt file,dir .git/{config,HEAD,objects,refs}
-                test -z "$worktree"
-                and set -g __mist_git_wtid (string escape --style=var $PWD)
-
-                test -z "$gitdir"
-                and set -g __mist_git_dir $PWD/.git
+            if path filter -vqt file,dir .git/{$checks}
+                set -g __mist_git_wt $PWD
+                set -g __mist_git_dir $PWD/.git
                 return
             end
         end
 
-        # Verify cealing directories
+        # Search up the tree using manual logic
         set ignore_dirs $HOME $TERMUX__ROOTFS_DIR (string split ':' $GIT_CEILING_DIRECTORIES)
         set splited_pwd $PWD
-
         while test $splited_pwd[-1] != /
             set -a splited_pwd (path normalize $splited_pwd[-1]/..)
-            contains $splited_pwd[-1] $ignore_dirs; and break
+            contains $splited_pwd[-1] $ignore_dirs
+            and break
+
         end
 
         set gitdir_location (path filter -d $splited_pwd/.git)[1]
 
-        if test -z "$gitdir_location" # Detect bare repos
+        if test -z "$gitdir_location" # Bare repo detection
             set gitdir_candidate (path filter -f $splited_pwd/config)[1]
             test -z "$gitdir_candidate"
             and return
 
-            if ! path filter -vqt file,dir $gitdir_candidate/{config,HEAD,objects,refs}
-                set gitdir (path dirname $gitdir_candidate)
-                set -g __mist_git_dir $gitdir
+            if path filter -vqt file,dir $gitdir_candidate/{$checks}
                 return
             end
 
             read -lzn 200 config_content <$gitdir_candidate/config
             if string match -qr 'bare\s*=\s*true' $config_content
-                test -z "$gitdir"
-                and set gitdir (path dirname $gitdir_candidate)
-
-                set -g __mist_git_dir $gitdir
+                set -g __mist_git_dir (path dirname $gitdir_candidate)
                 return
             end
             return
         end
 
-        if ! path filter -vqt file,dir $gitdir_location/{config,HEAD,objects,refs}
-            test -z "$worktree"
-            and set worktree (path dirname $gitdir_location)
+        # Worktree and dir assignment
+        test -z "$worktree"
+        and set worktree (path dirname $gitdir_location)
 
-            test -z "$gitdir"
-            and set gitdir $gitdir_location
+        test -z "$gitdir"
+        and set gitdir $gitdir_location
 
-            set -g __mist_git_wtid (string escape --style=var $worktree)
-            set -g __mist_git_dir $gitdir
-        end
+        set -g __mist_git_wt $worktree
+        set -g __mist_git_dir $gitdir
     end
 
     function __mist_git_getref
+        # Return git reference using high-performance manual parsing
         set gitdir $__mist_git_dir
-        test -z "$gitdir"; and return
+        test -z "$gitdir"
+        and return
 
-        set -e __mist_git_ref
+        set -g __mist_git_ref
         read githead <"$gitdir/HEAD"
 
         if string match -qr '^[[:xdigit:]]+$' $githead
             set short_hash (string sub -l 7 $githead)
-
             if test -f "$gitdir/packed-refs"
                 set pack_ref (string match -rg "$githead refs/(\w+)/(.+)" <$gitdir/packed-refs)
                 if test -n "$pack_ref"
@@ -187,173 +146,215 @@ if status is-interactive
 
         set short_hash (string sub -l 7 $refhash)
         set ref_data (string match -rg 'refs/(\w+)/(.+)' $ref_path)
-
         set type_index (contains -i $ref_data[1] heads tags)
         set reftype_names branch tag
-
         set -g __mist_git_ref $reftype_names[$type_index] $ref_data[2] $short_hash
     end
 
-    function __mist_git_emitter
-        set wtid $__mist_git_wtid
-        test -z "$wtid"; and return
+    function __mist_git_process_data
+        # Helper to structure raw git porcelain into local state
+        set git_data $argv
+        set is_dirty false
+        set is_staging false
 
-        set lock_var "__mist_git_lock_$wtid"
-
-        if set -q $lock_var
-            set timeout (string match -r '^\d+$' $mist_timeout[1]; or echo 10)
-            set cur_timestamp (path mtime -R /proc)
-            set lock_timestamp $$lock_var
-
-            if test (math "$lock_timestamp" + "$timeout") -lt "$cur_timestamp"
-                set -eU $lock_var __mist_git_refresh_$wtid
-            else
-                set -q __mist_git_refresh_$wtid
-                or set -U __mist_git_refresh_$wtid
+        if test (count $git_data) -gt 1
+            if string match -rq '^(?:\s|\S)\S' $git_data[2..]
+                set is_dirty true
             end
-            return
+            if string match -rq '^\S\s' $git_data[2..]
+                set is_staging true
+            end
         end
 
-        set -U __mist_git_lock_$wtid (path mtime -R /proc)
-        # Start background runner
-        # source is for dev debug
-        # fish --private -c "source $HOME/mist/mist-git.fish;__mist_git_runner $wtid" &
-        fish --private -c "__mist_git_runner $wtid" &
+        set ahead (string match -rg '\[(?:ahead (\d).*)\]' "$git_data[1]")
+        set behind (string match -rg '\[.*(?:behind (\d))\]' "$git_data[1]")
+        test -z "$ahead"
+        and set ahead 0
+
+        test -z "$behind"
+        and set behind 0
+
+        printf "%s\n" $is_dirty $is_staging $ahead $behind
     end
 
-    function __mist_git_wtid_updater
-        # Update wtid after change the PWD
-        if test "$__mist_last_pwd" = "$PWD"
-            return
-        end
-
-        set last_wtid "$__mist_git_wtid"
-        __mist_git_getdir
-
-        if test "$last_wtid" = "$__mist_git_wtid"
-            return
-        end
-
-        set -g __mist_last_pwd "$PWD"
-
-        # Detect if exit a git repo
-        if test -n "$last_wtid" -a "$last_wtid" != "$__mist_git_wtid"
-            set last_worktree (string unescape --style=var "$last_wtid")
-
-            if ! string match -q "$last_worktree/*" "$PWD/"
-                set -g __mist_git_status false false 0 0
-                set -g __mist_git_ref
-
-                # Clean variables
-                functions -e __mist_git_handle
-                set -U __mist_git_sessions (string match -rv "^$fish_pid:" $__mist_git_sessions)
-
-                # Remove unused worktree-specific variables
-                if ! string match -rq ":$last_wtid\$" $__mist_git_sessions
-                    set -eU "__mist_git_data_$last_wtid" "__mist_git_lock_$last_wtid" "__mist_git_refresh_$last_wtid"
-
-                end
-            end
-        end
-
-        # Exit if is not in a git repo
-        test -z "$__mist_git_wtid"
+    # Emits the background git status
+    function __mist_git_emitter
+        test -z "$__mist_git_wt"
         and return
 
-        set wtid "$__mist_git_wtid"
-
-        # Updates the global list
-        if string match -qr "^$fish_pid:" $__mist_git_sessions
-            set -U __mist_git_sessions (string replace -r "^$fish_pid:.*" "$fish_pid:$wtid" $__mist_git_sessions)
-        else
-            set -aU __mist_git_sessions "$fish_pid:$wtid"
-        end
-
-        # Update the git info
-        set last_ref "$__mist_git_ref"
-        __mist_git_getref
-
-        if test "$__mist_git_ref" != "$last_ref"
-            set data_var "__mist_git_data_$__mist_git_wtid"
-            set -U {$data_var}[1..3] $__mist_git_ref
-        end
-
-        set tmpvar "__mist_git_data_$__mist_git_wtid"[4..7]
-        set status_data $$tmpvar
-
-        if test -n "$status_data"
-            set -g __mist_git_status $status_data
-        else
-            set -g __mist_git_status false false 0 0
-        end
-
-        # Dynamic handler
-        function __mist_git_handle --on-variable __mist_git_data_$wtid -V wtid
-            set data_var "__mist_git_data_$wtid"
-            set data $$data_var
-            if test "$__mist_git_ref $__mist_git_status" != "$data[..7]"
-                set -g __mist_git_ref $data[1..3]
-                set -g __mist_git_status $data[4..7]
-                commandline -f repaint
+        # Use global lock list to prevent simultaneous calls in same worktree
+        set escaped_wt (string escape --style=regex "$target_wt")
+        if string match -rq "\d+:$escaped_wt" $__mist_git_lock
+            # Timeout verification
+            set wt_mtime (string match -rg "(\d+):$escaped_wt" $__mist_git_lock)
+            if test "$wt_mtime" -lt (math (path mtime -R /proc) - $__mist_git_timeout)
+                set -U __mist_git_lock (string match -rv "\d+:$escaped_wt" $__mist_git_lock)
+            else
+                return
             end
         end
+
+        set -aU __mist_git_lock (path mtime -R /proc)":$__mist_git_wt"
+        set git_cmd "git status --porcelain=v2 --branch --short 2>/dev/null"
+
+        fish --private -c "set -U __mist_gitout_$fish_pid $__mist_git_wt ($git_cmd);kill -SIGUSR1 $fish_pid" &
     end
-    function __mist_git_trigger_postexec --on-event fish_postexec
-        __mist_git_wtid_updater
-        test -z "$__mist_git_wtid"; and return
 
-        # Verify if the command is on black list
-        set args (string split ' ' "$argv")
-        if test -z "$args"
-            return
+    function __mist_git_handler --on-signal SIGUSR1
+        set out_var "__mist_gitout_$fish_pid"
+        set raw_data $$out_var
+
+        test -z "$raw_data"
+        and return
+
+        set -eU $out_var
+
+        set target_wt $raw_data[1]
+        set escaped_wt (string escape --style=regex "$target_wt")
+
+        set git_output $raw_data[2..]
+        set status_data (__mist_git_process_data $git_output)
+
+        set max_cache 8
+        set cache_entry "$target_wt $__mist_git_ref $status_data"
+
+        # Move the cache entry to start of the list
+        set new_cache (string match -rv "^$escaped_wt\s.*" $__mist_git_cache)
+        set -p new_cache "$cache_entry"
+
+        if test (count $new_cache) -gt $max_cache
+            set -e new_cache[-1]
         end
+        set -U __mist_git_cache $new_cache
 
-        if test (count $args) -ge 2 -a \( "$args[1]" = git -o "$args[1]" = g \)
-            if contains -- "$args[2]" $__mist_git_subcmd_black_list
+        # Syncronize sessions
+        set -U __mist_git_sync "$target_wt" $__mist_git_ref $status_data
+        set -U __mist_git_lock (string match -rv "\d+:$escaped_wt" $__mist_git_lock)
+
+        test "$__mist_git_wt" = "$target_wt"
+        and return
+
+        set -g __mist_git_status $status_data
+        commandline -f repaint
+    end
+
+    function __mist_git_sync_handler --on-variable __mist_git_sync
+        # Secondary shells in the same worktree detect global data update
+        test -z "$__mist_git_sync"
+        and return
+
+        test "$__mist_git_sync[1]" != "$__mist_git_wt"
+        and return
+
+        set -g __mist_git_ref $__mist_git_sync[2..4]
+        set -g __mist_git_status $__mist_git_sync[5..8]
+        commandline -f repaint
+    end
+
+    function __mist_git_trigger_postexec --on-event fish_postexec
+        set args (string split ' ' "$argv" | string match -r '\w+')
+
+        if test "$__mist_last_pwd" != "$PWD"
+            set -g __mist_last_pwd "$PWD"
+            __mist_git_getdir
+
+            if test -n "$__mist_git_wt"
+                # Register session
+                if ! string match -qr "^$fish_pid:" $__mist_git_sessions
+                    set -aU __mist_git_sessions "$fish_pid:$__mist_git_wt"
+                else
+                    set -U __mist_git_sessions (string replace -r "^$fish_pid:.*" "$fish_pid:$__mist_git_wt" $__mist_git_sessions)
+                end
+            else
+                set -U __mist_git_sessions (string match -rv "^$fish_pid:" $__mist_git_sessions)
+                set -g __mist_git_ref
+                set -g __mist_git_status false false 0 0
                 return
             end
-        else
-            if contains -- "$args[1]" $__mist_git_black_list
-                return
+
+            # Restore from cache
+            set escape_wt (string escape --style=regex $__mist_git_wt)
+            set cache_match (string match -r "^$escape_wt\s.+" $__mist_git_cache)
+
+            if test -n "$cache_match"
+                set cache_data (string split ' ' $cache_match)
+                set -g __mist_git_ref $cache_data[2..4]
+                set -g __mist_git_status $cache_data[5..8]
+            else
+                set -g __mist_git_ref
+                set -g __mist_git_status false false 0 0
+            end
+        end
+
+        test -z "$__mist_git_wt"
+        and return
+
+        if ! contains -- '>' $args
+            and ! contains -- '>>' $args
+
+            if test "$args[1]" = git -o "$args[1]" = g
+                contains -- "$args[2]" $__mist_git_subcmd_black_list
+                and return
+
+            else
+                contains -- "$args[1]" $__mist_git_black_list
+                and return
+
             end
         end
 
         __mist_git_getref
         __mist_git_emitter
     end
+
     function __mist_git_cleaner --on-event fish_exit
-        set session_list $__mist_git_sessions
-        set session_list (string match -rv "^$fish_pid" $session_list)
+        # Clean current session
+        set -eU "__mist_gitout_$fish_pid"
+        set -U __mist_git_sessions (string match -rv "^$fish_pid:" $__mist_git_sessions)
 
-        set pid_list (string match -r '^\d+' $session_list)
-        set alive_pids (path filter /proc/$pid_list/comm)
+        # Batch cleanup of dead processes
+        set pids (string match -rg '^(\d+):' $__mist_git_sessions)
+        set dead_pids (string match -rg '^/proc/(\d+)' (path filter -vd /proc/$pids))
 
-        set validated_pids
-        for pid_path in $alive_pids
-            string match -q fish <$pid_path; and set -a validated_pids $pid_path
+        test -z "$dead_pids"
+        and return
+
+        set -eU __mist_gitout_$dead_pids
+        set regex_filter (string join '|' (string replace -r '^/proc/' '' $dead_pids))
+
+        set -U __mist_git_sessions (string match -rv "^(?:$regex_filter):.+" $__mist_git_sessions)
+
+        # Clear timeouted locks
+        if test -n "$__mist_git_lock"
+            set timestamp (path mtime -R /proc)
+            set new_lock
+
+            for lock in $__mist_git_lock
+                set lock_timestamp (string match -r '^\d+' $lock)
+                if test (math $lock_timestamp + $__mist_git_timeout) -ge $timestamp
+                    set -a new_lock $lock
+                end
+            end
+
+            set __mist_git_lock $new_lock
         end
-
-        set ok_pids (string match -rg '/proc/(\d+)/comm' $validated_pids)
-        set alive_sessions
-        if test -n "$ok_pids"
-            set regex (string join '|' $ok_pids)
-            set alive_sessions (string match -r "(?:$regex):.+" $session_list)
-        end
-
-        set active_wktrees (string match -r '[^:]+$' $alive_sessions | path sort -u)
-        set wktree_vars (set -nU | string match -rg '^__mist_git_data_(.+)')
-        set dead_wktrees $wktree_vars
-
-        for wktree in $active_wktrees
-            set dead_wktrees (string match -v "$wktree" $dead_wktrees)
-        end
-
-        if test -n "$dead_wktrees"
-            set -eU __mist_git_data_$dead_wktrees __mist_git_lock_$dead_wktrees __mist_git_refresh_$dead_wktrees
-        end
-
-        set -U __mist_git_sessions $alive_sessions
     end
 
-    __mist_git_trigger_postexec
+    # Startup
+    __mist_git_getdir
+    if test -n "$__mist_git_wt"
+        set -aU __mist_git_sessions "$fish_pid:$__mist_git_wt"
+
+        # Restore from cache
+        set escape_wt (string escape --style=regex $__mist_git_wt)
+        set cache_match (string match -r "^$escape_wt\s.+" $__mist_git_cache)
+
+        if test -n "$cache_match"
+            set cache_data (string split ' ' $cache_match)
+            set -g __mist_git_ref $cache_data[2..4]
+            set -g __mist_git_status $cache_data[5..8]
+        end
+    end
+    __mist_git_getref
+    __mist_git_emitter
 end
