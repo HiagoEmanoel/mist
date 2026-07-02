@@ -96,7 +96,6 @@ if status is-interactive
         # Print a line of the given string
         set options h/help p/pad= s/size= a/aling= n/newline
         argparse $options -- $argv
-
         or return
 
         if set -q _flag_h

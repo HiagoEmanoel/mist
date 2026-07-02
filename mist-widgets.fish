@@ -5,8 +5,6 @@ if status is-interactive
 
     function mist_login
         # Generates a login string
-        set argv_all $argv
-
         set options h/help n/newline
         argparse $options -- $argv
         or return
@@ -27,7 +25,7 @@ if status is-interactive
             return
         end
 
-        if test "$argv_all" = "$__mist_login_cache[1]" -a -n "$__mist_login_cache[2]"
+        if test "@$argv$argv_opts" = "$__mist_login_cache[1]" -a -n "$__mist_login_cache[2]"
             set output $__mist_login_cache[2..]
 
             set -q _flag_n
@@ -59,7 +57,7 @@ if status is-interactive
 
         set output (string replace -ra -- '%(%+)' '$1' $output)
 
-        set -g __mist_login_cache "$argv_all" $output
+        set -g __mist_login_cache "@$argv$argv_opts" $output
 
         set -q _flag_n
         and printf "%b\n" $output
@@ -138,18 +136,12 @@ if status is-interactive
 
     function mist_git
         # format git information
-        set argv_all "$argv"
-
-        set options h/help b/branch= c/commit r/remote t/tag d/dirty= s/staging= a/ahead= i/behind= n/newline D/debug
+        set options h/help b/branch= c/commit r/remote t/tag d/dirty= s/staging= a/ahead= i/behind= n/newline
         argparse $options -- $argv
         or return
 
-        if set -q _flag_D
-            set -e __mist_git_prompt_cache
-        end
-
         # Cache processing
-        if test "$__mist_git_prompt_cache[1]" = "$__mist_git_ref$__mist_git_status$argv_all"
+        if test "$__mist_git_prompt_cache[1]" = "$__mist_git_ref$__mist_git_status$argv$argv_opts" -a -n "$__mist_git_prompt_cache[1]"
             test -z "$__mist_git_wt"
             and return
 
@@ -230,20 +222,6 @@ if status is-interactive
             set behind 0
         end
 
-        if set -q _flag_D
-            echo "ref_data: $ref_data" >&2
-            echo "reftype: $reftype" >&2
-            echo "refname: $refname" >&2
-            echo "refhash: $refhash" >&2
-
-            echo "status_data: $status_data" >&2
-            echo "is_dirty: $is_dirty" >&2
-            echo "is_staging: $is_staging" >&2
-
-            echo "ahead: $ahead" >&2
-            echo "behind: $behind" >&2
-        end
-
         if string match -rq '(?<!%)%C' $output
             test "$is_dirty" = false -a "$is_staging" = true
             and set choiced_ind '%S'
@@ -261,7 +239,7 @@ if status is-interactive
             switch $spec
                 case R
                     set charset_default    󰓹
-                    set input_charset "$__flag_help" "$__flag_branch" "$__flag_commit" "$__flag_remote" "$__flag_tag"
+                    set input_charset "$_flag_commit" "$_flag_branch" "$_flag_remote" "$_flag_tag"
 
                     set refchar
                     set char_index (contains -i -- $reftype commit branch remote tag)
@@ -330,7 +308,7 @@ if status is-interactive
         set output (string replace -ra -- '(?<!%)%([RrhtabABDS])' '' $output)
         set output (string replace -ra -- '%(%+)' '$1' $output)
 
-        set -g __mist_git_prompt_cache "$ref_data$status_data$argv_all" $output
+        set -g __mist_git_prompt_cache "$ref_data$status_data$argv$argv_opts" $output
 
         set -q _flag_n
         and printf "%b\n" $output
@@ -338,8 +316,7 @@ if status is-interactive
     end
 
     function mist_pwd
-        set argv_all "$argv"
-        set options h/help H/homesym F/foldersym s/separator= T/no-tilde m/max-size= n/newline
+        set options h/help H/homesym= F/foldersym= s/separator= T/no-tilde m/max-size= n/newline
         argparse $options -- $argv
         or return
 
@@ -371,7 +348,7 @@ if status is-interactive
         end
 
         # Cache
-        if test "$__mist_pwd_cache[1]" = "$PWD$argv_all" -a -n "$__mist_pwd_cache"
+        if test "$__mist_pwd_cache[1]" = "$PWD$argv$argv_opts" -a -n "$__mist_pwd_cache"
             set output $__mist_pwd_cache[2..]
 
             set -q _flag_n
@@ -463,7 +440,7 @@ if status is-interactive
         set output (string replace -a -- "%d" "$dirname" $output)
         set output (string replace -a -- "%t" "$tilde" $output)
 
-        set -g __mist_pwd_cache "$PWD$argv_all" $output
+        set -g __mist_pwd_cache "$PWD$argv$argv_opts" $output
 
         set -q _flag_n
         and printf "%b\n" $output

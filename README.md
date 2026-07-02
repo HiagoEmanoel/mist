@@ -1,14 +1,14 @@
 ```
-   ____ ___  (_)____/ /_
-  / __ `__ \/ / ___/ __/
- / / / / / / (__  ) /_  
-/_/ /_/ /_/_/____/\__/
+                     __         __
+        ____ ___    /_/\_____  / /\
+       / __ `__ \  / /\/ ___/\/ __/\
+      / /\/ /\/ /\/ / (__  )\/ /\_\/
+     /_/ /_/ /_/ / / /____/ )\__/\
+_____\_\/\_\/\_\/\_\/\____\/  \_\/   
                         
 ```
 
 **A simple prompt engine for *Fish shell***
-
----
 
 ## Features
 * **Async Git Status:** Runs in the background, so your terminal never freezes or slows down
@@ -16,41 +16,74 @@
 * **Instant Multi-Shell Sync:** When your git status changes, it updates across all open tabs immediately
 * **"Make It Yourself":** No locked-in or forced configs. You decide exactly how your prompt looks
 
-## Requirements
-**Fish** >= 3.2.0
-
-**Git**
-
 ## Installation
----
-**Install command:**
+
+### Requirements
+* **Fish** >= 3.2.0
+
+* **Git** >= 2.17
+
+* **A NerdFont**
+
+Install command:
 
 
 ```fish
 set -l tmr $TMPDIR/mist.git
-git clone --{bare,depth 1} https://github.com/H-Emanoel/mist $tmr
-git --git-dir=$tmr archive HEAD \
-mist-git.fish mist-widgets.fish mist-decors.fish \
-       | tar -x -C $__fish_config_dir/conf.d
+git clone --bare --depth 1 https://github.com/H-Emanoel/mist $tmr
+git --git-dir=$tmr archive HEAD mist-{git,widgets,decors}.fish \
+| tar -x -C $__fish_config_dir/conf.d
 rm -rf $tmr
 ```
 
-**Uninstall:**
+Uninstall:
 
 ```fish
 rm $__fish_config_dir/mist-{git,widgets,decors}.fish
 ```
 
-**Note:** Prun was developed thinking only in Linux enviroments and was only in Android, probaly don't work in other systems
+> [!NOTE]
+> Mist was developed unsig Linux/Android-only features, like `/proc` files, it don't work properly in other systems
 
-## Avaliable commands
+## Usage
 
-|command|description|
-|:---:|:---:|
+### Commands
+
+|Command|Description|
+|:---|:---|
 |mist_date|Formats and displays the current system date and time|
-|mist_git|format git informations|
+|mist_git|Format git informations|
 |mist_line|Draws a horizontal line across the terminal width|
 |mist_login|Displays the current user, hostname and distro symbol|
 |mist_pwd|Formats the current working directory path|
 
-**See:** `<command --help>` to see detaild usage
+Most of the commands uses `%` based symtax. Example:
+
+```fish
+mist_login "%u"
+mist_git "at git:%r%C" %A%B # outputs:
+user main+ ↑
+```
+
+Strings with only empty specifiers are hidden, so outside a repo, the sample will only output the `username`
+
+### Common flags
+
+* **-h, --help**: Show more datails
+* **-n, --newline**: Prints each format string into a new line, creating a array. Useful for colored output
+
+Example:
+
+```fish
+set parts (mist_git -n %R%r %C %A%B)
+set_color brred # For ref symbol and name
+printf $parts[1] 
+set_color yellow # For dirty/staging symbol
+printf $parts[2]
+set_color brblack # For ahead/behind indicator
+printf $parts[3]
+```
+
+## License
+
+MIT
