@@ -1,20 +1,20 @@
 ```
-                     __         __
-        ____ ___    /_/\_____  / /\
-       / __ `__ \  / /\/ ___/\/ __/\
-      / /\/ /\/ /\/ / (__  )\/ /\_\/
-     /_/ /_/ /_/ / / /____/ )\__/\
-_____\_\/\_\/\_\/\_\/\____\/  \_\/   
+                 __         __
+    ____ ___    ╱_╱╲_____  ╱ ╱╲
+   ╱ __ `__ ╲  ╱ ╱╲╱ ___╱╲╱ __╱╲
+  ╱ ╱╲╱ ╱╲╱ ╱╲╱ ╱ (__  )╲╱ ╱╲_╲╱
+ ╱_╱ ╱_╱ ╱_╱ ╱ ╱ ╱____╱ )╲__╱╲
+ ╲_╲╱╲_╲╱╲_╲╱╲_╲╱╲____╲╱  ╲_╲╱   
                         
 ```
 
-**A simple prompt engine for *Fish shell***
+> A simple prompt engine for Fish shell
 
 ## Features
-* **Async Git Status:** Runs in the background, so your terminal never freezes or slows down
-* **Native Git Reference Processing:** It reads git refs and hashes manually for maximum speed
-* **Instant Multi-Shell Sync:** When your git status changes, it updates across all open tabs immediately
-* **"Make It Yourself":** No locked-in or forced configs. You decide exactly how your prompt looks
+* Async Git Status: Runs in the background, so your terminal never freezes or slows down
+* Native Git Reference Processing: It reads git refs and hashes manually for maximum speed
+* Instant Multi-Shell Sync: When your git status changes, it updates across all open tabs immediately
+* "Make It Yourself": No locked-in or forced configs. You decide exactly how your prompt looks
 
 ## Installation
 
@@ -23,23 +23,22 @@ _____\_\/\_\/\_\/\_\/\____\/  \_\/
 
 * **Git** >= 2.17
 
-* **A NerdFont**
+* **NerdFont**
 
 Install command:
 
 
 ```fish
-set -l tmr $TMPDIR/mist.git
-git clone --bare --depth 1 https://github.com/H-Emanoel/mist $tmr
-git --git-dir=$tmr archive HEAD mist-{git,widgets,decors}.fish \
-| tar -x -C $__fish_config_dir/conf.d
-rm -rf $tmr
+for file in mist-{git,widgets,decors}.fish
+  curl -s https://raw.githubusercontent.com/H-Emanoel/mist/master/$file -o $__fish_config_dir/conf.d/$file
+end
 ```
 
 Uninstall:
 
 ```fish
 rm $__fish_config_dir/mist-{git,widgets,decors}.fish
+set -eU (set -nU | grep __mist_)
 ```
 
 > [!NOTE]
@@ -61,8 +60,8 @@ Most of the commands uses `%` based symtax. Example:
 
 ```fish
 mist_login "%u"
-mist_git "at git:%r%C" %A%B # outputs:
-user main+ ↑
+mist_git "at %r%C" %A%B # outputs:
+user at main+ ↑
 ```
 
 Strings with only empty specifiers are hidden, so outside a repo, the sample will only output the `username`
