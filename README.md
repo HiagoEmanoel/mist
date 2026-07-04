@@ -1,10 +1,10 @@
 ```
                  __         __
-    ____ ___    ╱_╱╲_____  ╱ ╱╲
-   ╱ __ `__ ╲  ╱ ╱╲╱ ___╱╲╱ __╱╲
-  ╱ ╱╲╱ ╱╲╱ ╱╲╱ ╱ (__  )╲╱ ╱╲_╲╱
- ╱_╱ ╱_╱ ╱_╱ ╱ ╱ ╱____╱ )╲__╱╲
- ╲_╲╱╲_╲╱╲_╲╱╲_╲╱╲____╲╱  ╲_╲╱   
+    ____ ___    /_/\_____  / /\
+   / __ `__ \  / /\/ ___/\/ __/\
+  / /\/ /\/ /\/ / (__  )\/ /\_\/
+ /_/ /_/ /_/ / / /____/ )\__/\
+ \_\/\_\/\_\/\_\/\____\/  \_\/   
                         
 ```
 
@@ -19,13 +19,13 @@
 ## Installation
 
 ### Requirements
-* **Fish** >= 3.2.0
+![](https://img.shields.io/badge/Fish%20%3E%3D%203.2-gray?style=for-the-badge&logo=fishshell&logoColor=white&labelColor=green)
 
-* **Git** >= 2.17
+![](https://img.shields.io/badge/Git%20%3E%3D%202.17-gray?style=for-the-badge&logo=git&logoColor=white&labelColor=orange)
 
-* **NerdFont**
+![](https://img.shields.io/badge/Nerdfont-gray?style=for-the-badge&logo=awesomelists&logoColor=black&labelColor=yellow)
 
-Install command:
+* Install command:
 
 
 ```fish
@@ -34,7 +34,7 @@ for file in mist-{git,widgets,decors}.fish
 end
 ```
 
-Uninstall:
+* Uninstall:
 
 ```fish
 rm $__fish_config_dir/mist-{git,widgets,decors}.fish
@@ -42,7 +42,7 @@ set -eU (set -nU | grep __mist_)
 ```
 
 > [!NOTE]
-> Mist was developed unsig Linux/Android-only features, like `/proc` files, it don't work properly in other systems
+> Mist was developed unsig Linux/Android-only features like `/proc` files, it don't work properly in other systems
 
 ## Usage
 
@@ -68,8 +68,8 @@ Strings with only empty specifiers are hidden, so outside a repo, the sample wil
 
 ### Common flags
 
-* **-h, --help**: Show more datails
-* **-n, --newline**: Prints each format string into a new line, creating a array. Useful for colored output
+* -h, --help: Show more datails
+* -n, --newline: Prints each format string into a new line, creating a array. Useful for colored output
 
 Example:
 
@@ -82,6 +82,8 @@ printf $parts[2]
 set_color brblack # For ahead/behind indicator
 printf $parts[3]
 ```
+
+More samples can be founded [here](https://github.com/HiagoEmanoel/mist/tree/main/samples)
 
 ## License
 
