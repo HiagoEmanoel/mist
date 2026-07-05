@@ -5,7 +5,7 @@ if status is-interactive
 
     function mist_login
         # Generates a login string
-        set options h/help n/newline
+        set -l options h/help n/newline
         argparse $options -- $argv
         or return
 
@@ -26,7 +26,7 @@ if status is-interactive
         end
 
         if test "@$argv$argv_opts" = "$__mist_login_cache[1]" -a -n "$__mist_login_cache[2]"
-            set output $__mist_login_cache[2..]
+            set -l output $__mist_login_cache[2..]
 
             set -q _flag_n
             and printf "%b\n" $output
@@ -35,25 +35,15 @@ if status is-interactive
             return
         end
 
-        # Set the default output
+        # Set -l the default output
+        set -l output
         test -n "$argv"
         and set output $argv
         or set output "[%s] %h@%u"
 
-        set specifiers (string match -rga -- '(?<!%)%([uhs])' $output)
-        set specifiers (string match -rga -- '(\w)(?:\s*\1)*' (path sort $specifiers))
-
-        for spec in $specifiers
-            switch $spec
-                case s
-                    set str $__mist_login_distrosym
-                case u
-                    set str $USER
-                case h
-                    set str $hostname
-            end
-            set output (string replace -ra -- "(?<!%)%$spec" "$str" $output)
-        end
+        set output (string replace -ra -- "(?<!%)%h" "$hostname" $output)
+        set output (string replace -ra -- "(?<!%)%u" "$USER" $output)
+        set output (string replace -ra -- "(?<!%)%s" "$__mist_login_distrosym" $output)
 
         set output (string replace -ra -- '%(%+)' '$1' $output)
 
@@ -66,7 +56,7 @@ if status is-interactive
 
     # Find the symbol of the distro
     if test -z "$__mist_login_distrosym"
-        set raw_list \
+        set -f raw_list \
             "
         alpine               
         amazon               
@@ -108,27 +98,27 @@ if status is-interactive
         void                 
         zorin                
         "
-        set namelist (string match -ra '\w+' $raw_list)
-        set symbolist (string match -ra '[^\w\s]' $raw_list)
+        set -l namelist (string match -ra '\w+' $raw_list)
+        set -l symbolist (string match -ra '[^\w\s]' $raw_list)
+        set -l distro
 
         if test -n "$ANDROID_ROOT"
-            set -f distro android
-
+            set distro android
         else if test -f /etc/os-release
-            set -f distro (string match -rg '^ID=(\w+)' < /etc/os-release)
+            set distro (string match -rg '^ID=(\w+)' < /etc/os-release)
         end
 
+        set -l distrosym
         if test -n "$distro"
             set -f index (contains -i -- $distro $namelist)
 
             if test -n "$index"
-                set -f distrosym $symbolist[$index]
+                set distrosym $symbolist[$index]
             else
-                set -f distrosym 
+                set distrosym 
             end
-
         else
-            set -f distrosym 
+            set distrosym 
         end
 
         set -U __mist_login_distrosym $distrosym
@@ -136,7 +126,7 @@ if status is-interactive
 
     function mist_git
         # format git information
-        set options h/help b/branch= c/commit r/remote t/tag d/dirty= s/staging= a/ahead= i/behind= n/newline
+        set -l options h/help b/branch= c/commit r/remote t/tag d/dirty= s/staging= a/ahead= i/behind= n/newline
         argparse $options -- $argv
         or return
 
@@ -145,7 +135,7 @@ if status is-interactive
             test -z "$__mist_git_wt"
             and return
 
-            set output $__mist_git_prompt_cache[2..]
+            set -l output $__mist_git_prompt_cache[2..]
 
             set -q _flag_n
             and printf "%b\n" $output
@@ -195,61 +185,63 @@ if status is-interactive
             return
         end
 
-        test -z "$__mist_git_ref" -o -z "$__mist_git_status"; and return
+        test -z "$__mist_git_ref" -o -z "$__mist_git_status"
+        and return
 
+        set -l output
         if test -n "$argv"
             set output $argv
         else
             set output '[%R%r%C]' '%A%B'
         end
 
-        set ref_data $__mist_git_ref
-        set reftype $ref_data[1]
-        set refname $ref_data[2]
-        set refhash $ref_data[3]
+        set -l ref_data $__mist_git_ref
+        set -l reftype $ref_data[1]
+        set -l refname $ref_data[2]
+        set -l refhash $ref_data[3]
 
-        set status_data $__mist_git_status
-        set is_dirty $status_data[1]
-        set is_staging $status_data[2]
+        set -l status_data $__mist_git_status
+        set -l is_dirty $status_data[1]
+        set -l is_staging $status_data[2]
 
-        set ahead $status_data[3]
+        set -l ahead $status_data[3]
         if test -z "$ahead"
             set ahead 0
         end
 
-        set behind $status_data[4]
+        set -l behind $status_data[4]
         if test -z "$behind"
             set behind 0
         end
 
         if string match -rq '(?<!%)%C' $output
+            set -f choiced_ind
             test "$is_dirty" = false -a "$is_staging" = true
             and set choiced_ind '%S'
             or set choiced_ind '%D'
             set output (string replace -ra -- '(?<!%)%C' "$choiced_ind" $output)
         end
 
-        set output_bak $output
+        set -l output_bak $output
 
         # Replace every specifier in output
-        set specifiers (string match -rga -- '(?<!%)%([RrhtabABDS])' $output)
+        set -l specifiers (string match -rga -- '(?<!%)%([RrhtabABDS])' $output)
         set specifiers (string match -rga -- '(\w)(?:\s*\1)*' (path sort $specifiers))
         for spec in $specifiers
-            set val
+            set -f val ""
             switch $spec
                 case R
-                    set charset_default    󰓹
-                    set input_charset "$_flag_commit" "$_flag_branch" "$_flag_remote" "$_flag_tag"
+                    set -l charset_default    󰓹
+                    set -l input_charset "$_flag_commit" "$_flag_branch" "$_flag_remote" "$_flag_tag"
 
-                    set refchar
-                    set char_index (contains -i -- $reftype commit branch remote tag)
+                    set -l refchar
+                    set -l char_index (contains -i -- $reftype commit branch remote tag)
 
                     if test -n "$input_charset[$char_index]"
                         set refchar $input_charset[$char_index]
                     else
                         set refchar $charset_default[$char_index]
                     end
-
                     set val "$refchar"
                 case r
                     set val "$refname"
@@ -258,11 +250,11 @@ if status is-interactive
                 case t
                     set val "$reftype"
                 case a
-                    set val "$ahead_num"
+                    set val "$ahead"
                 case b
                     set val "$behind"
                 case A
-                    set ahead_ind
+                    set -f ahead_ind
                     if test $ahead -gt 0
                         set -q _flag_ahead
                         and set ahead_ind $_flag_ahead
@@ -270,7 +262,7 @@ if status is-interactive
                         set val "$ahead_ind"
                     end
                 case B
-                    set behind_ind
+                    set -f behind_ind
                     if test $behind -gt 0
                         set -q _flag_behind
                         and set behind_ind $_flag_behind
@@ -279,6 +271,7 @@ if status is-interactive
                     end
                 case D
                     if test "$is_dirty" = true -o "$is_staging" = true
+                        set -f dirty_indicator
                         set -q _flag_dirty
                         and set dirty_indicator $_flag_dirty
                         or set dirty_indicator '+'
@@ -286,17 +279,18 @@ if status is-interactive
                     end
                 case S
                     if test "$is_staging" = true
+                        set -f staging_indicator
                         set -q _flag_staging
                         and set staging_indicator $_flag_staging
                         or set staging_indicator '*'
-                        set val "$saging_indicator"
+                        set val "$staging_indicator"
                     end
             end
             set output (string replace -ra -- "(?<!%)%$spec" "$val" $output)
         end
 
         # clean blocks with only empty keys
-        set count 1
+        set -l count 1
         for block in $output
             if test "$block" = "$output_bak[$count]"
                 set output[$count] ''
@@ -316,7 +310,7 @@ if status is-interactive
     end
 
     function mist_pwd
-        set options h/help H/homesym= F/foldersym= s/separator= T/no-tilde m/max-size= n/newline
+        set -l options h/help H/homesym= F/foldersym= s/separator= T/no-tilde m/max-size= n/newline
         argparse $options -- $argv
         or return
 
@@ -349,7 +343,7 @@ if status is-interactive
 
         # Cache
         if test "$__mist_pwd_cache[1]" = "$PWD$argv$argv_opts" -a -n "$__mist_pwd_cache"
-            set output $__mist_pwd_cache[2..]
+            set -l output $__mist_pwd_cache[2..]
 
             set -q _flag_n
             and printf "%b\n" $output
@@ -358,19 +352,24 @@ if status is-interactive
             return
         end
 
-        set homesym "󰋜"
+        set -l homesym "󰋜"
         set -q _flag_H
         and set homesym $_flag_H
 
+        set -l foldersym
         set -q _flag_F
         and set foldersym $_flag_F
         or set foldersym "󰝰"
 
+        set -l separator
         set -q _flag_s
         and set separator $_flag_s
         or set separator /
 
-        set dirname (path basename $PWD)
+        set -l dirname (path basename $PWD)
+        set -l maxsize
+        set -l maxsize_total
+
         if set -q _flag_m
             set maxsize_total $_flag_m
             set maxsize (math $maxsize_total - (string length "$dirname"))
@@ -383,31 +382,33 @@ if status is-interactive
             and set maxsize 0
         end
 
+        set -l tilde
         set -q _flag_T
         and set tilde (path basename "$HOME")
         or set tilde '~'
 
         # Default prompt
+        set -l output
         test -n "$argv"
         and set output $argv
         or set output "%s %t%p%d"
 
-        set homepath (string escape --style=regex -- "$HOME")
+        set -l homepath (string escape --style=regex -- "$HOME")
+        set -l symbol
+        set -l dirpath
 
         if test "$HOME" = "$PWD"
             set symbol "$homesym"
-
-            set dirname
-            set dirpath
-
+            set dirname ""
+            set dirpath ""
         else if string match -rq "^$homepath/" "$PWD"
             # Triggers if the pwd is ahead home
             set symbol "$foldersym"
             set dirpath (string match -rg  -- "^$homepath(.*?)[^/]*\$" "$PWD")
 
             # Shorts the dirpath
-            set cutpath (string sub -s -$maxsize -- (string replace -- / "$separator" "$dirpath"))
-            set maxdirs (count (string match -ra -- (string escape --style=regex -- "$separator") "$cutpath"))
+            set -l cutpath (string sub -s -$maxsize -- (string replace -- / "$separator" "$dirpath"))
+            set -l maxdirs (count (string match -ra -- (string escape --style=regex -- "$separator") "$cutpath"))
 
             if test "$maxdirs" = 0
                 if test "$dirpath" != /
@@ -417,13 +418,13 @@ if status is-interactive
                 set dirpath (string replace -r -- "(^/)?.+((?:/[^/]+){$maxdirs}/\$)" '$1…$2' "$dirpath")
             end
         else
-            set tilde
+            set tilde ""
             set symbol "$foldersym"
             # Shorts the dirpath
             set dirpath (path dirname "$PWD")
 
-            set cutpath (string sub -s -$maxsize -- (string replace -- / "$separator" "$dirpath"))
-            set maxdirs (count (string match -ra -- (string escape --style=regex -- "$separator") "$cutpath"))
+            set -l cutpath (string sub -s -$maxsize -- (string replace -- / "$separator" "$dirpath"))
+            set -l maxdirs (count (string match -ra -- (string escape --style=regex -- "$separator") "$cutpath"))
 
             if test "$maxdirs" = 0
                 set dirpath …/

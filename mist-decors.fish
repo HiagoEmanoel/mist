@@ -5,7 +5,7 @@ if status is-interactive
 
     function mist_date
         # format date
-        set options h/help n/newline
+        set -l options h/help n/newline
         argparse $options -- $argv
         or return
 
@@ -27,32 +27,33 @@ if status is-interactive
             return
         end
 
-        # Set the default output
+        # Set -f the default output
         test -n "$argv"
-        and set output $argv
-        or set output "%w %d/%M/%Y %H:%m:%s"
+        and set -f output $argv
+        or set -f output "%w %d/%M/%Y %H:%m:%s"
 
-        set unix_timestamp (math (path mtime -R /proc) + 1)
+        set -f unix_timestamp (math (path mtime -R /proc) + 1)
 
         # Init the timezone and date
         if test -z "$__mist_clock_date" -o -z "$__mist_timezone"
-            set date_out (string split ' ' (date "+%H %d %a %b %y %Y"))
+            set -l date_out (string split ' ' (date "+%H %d %a %b %y %Y"))
 
             set -g __mist_clock_date $date_out[2..]
 
-            set hour_now (math -s0 $unix_timestamp / 3600 % 24)
+            set -l hour_now (math -s0 $unix_timestamp / 3600 % 24)
             set -g __mist_timezone (math \($date_out[1] - $hour_now\) x 3600)
         end
 
-        set date $__mist_clock_date
+        set -f date $__mist_clock_date
 
-        set local_ts (math $unix_timestamp + $__mist_timezone)
+        set -f local_ts (math $unix_timestamp + $__mist_timezone)
 
         # filter the specifiers and make then unique
-        set specifiers (string match -rga -- '(?<!%)%([dwMyYHhIms])' $output)
+        set -f specifiers (string match -rga -- '(?<!%)%([dwMyYHhIms])' $output)
         set specifiers (string match -rga -- '(\w)(?:\s*\1)*' (path sort $specifiers))
 
         for spec in $specifiers
+            set -l val
             switch $spec
                 case d
                     set val "$date[1]"
@@ -65,21 +66,21 @@ if status is-interactive
                 case Y
                     set val "$date[5]"
                 case H
-                    set hour (math -s 0 $local_ts / 3600 % 24)
+                    set -l hour (math -s 0 $local_ts / 3600 % 24)
                     set val (printf "%02d" $hour)
                 case h
-                    set hour (math -s 0 $local_ts / 3600 % 24 % 12)
+                    set -l hour (math -s 0 $local_ts / 3600 % 24 % 12)
                     set val (printf "%02d" (math "$hour % 12"))
                 case I
-                    set hour (math -s 0 $local_ts / 3600 % 24)
+                    set -l hour (math -s 0 $local_ts / 3600 % 24)
                     test $hour -ge 12
                     and set val PM
                     or set val AM
                 case m
-                    set min (math -s 0 $local_ts / 60 % 60)
+                    set -l min (math -s 0 $local_ts / 60 % 60)
                     set val (printf "%02d" $min)
                 case s
-                    set sec (math "$local_ts % 60")
+                    set -l sec (math "$local_ts % 60")
                     set val (printf "%02d" $sec)
             end
             set output (string replace -ra -- "(?<!%)%$spec" "$val" $output)
@@ -94,7 +95,7 @@ if status is-interactive
 
     function mist_line
         # Print a line of the given string
-        set options h/help p/pad= s/size= a/aling= n/newline
+        set -l options h/help p/pad= s/size= a/aling= n/newline
         argparse $options -- $argv
         or return
 
@@ -130,41 +131,44 @@ if status is-interactive
             return
         end
 
-        set char "$argv"
+        set -f char "$argv"
         test -z "$char"
         and return
 
-        set charsize (string length -- "$char")
+        set -f charsize (string length -- "$char")
 
+        set -f size
         test -n "$_flag_s" -a "$_flag_s" -lt 100
         and set size $_flag_s
         or set size 100
 
+        set -f pad
         set -q _flag_p
         and set pad $_flag_p
         or set pad 0
 
         # Calculate the number of repeats to match size
-        set charcount (math -s0 $COLUMNS / \($charsize + $pad\) x $size / 100)
-        set linebuff (string repeat -n $charcount -- "$char"\n)
+        set -f charcount (math -s0 $COLUMNS / \($charsize + $pad\) x $size / 100)
+        set -f linebuff (string repeat -n $charcount -- "$char"\n)
 
-        set padstr (string repeat -n $pad -- ' ')
+        set -f padstr (string repeat -n $pad -- ' ')
 
-        set finaline (string join "$padstr" -- $linebuff)
+        set -f finaline (string join "$padstr" -- $linebuff)
 
         # Fix alingnment
+        set -f aling
         set -q _flag_a
         and set aling $_flag_a
         or set aling left
 
         switch (string sub -l 1 -- $aling)
             case c
-                set linesize (string length -- "$finaline")
-                set start (math -s0 -- \($COLUMNS - $linesize\) / 2)
+                set -l linesize (string length -- "$finaline")
+                set -l start (math -s0 -- \($COLUMNS - $linesize\) / 2)
                 printf "\e[%dG" $start
             case r
-                set linesize (string length -- "$finaline")
-                set start (math -s0 \($COLUMNS - $linesize\))
+                set -l linesize (string length -- "$finaline")
+                set -l start (math -s0 \($COLUMNS - $linesize\))
                 printf "\e[%dG" $start
             case l
                 printf "\e[0G"
