@@ -33,8 +33,9 @@ if status is-interactive
         # Set the default output
         test -n "$argv"
         and set -f output $argv
-        or set -f output "%s %b %w %s %u"
+        or set -f output "%s %b %w %u %m"
 
+        set -l last_status "$__mist_info_data[1]"
         set -l men_usage "$__mist_info_data[2]"
         set -l men_total "$__mist_info_data[3]"
         set -l battery "$__mist_info_data[4]"

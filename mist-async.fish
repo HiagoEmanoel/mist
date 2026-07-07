@@ -10,7 +10,7 @@ if status is-interactive
             set network (termux-wifi-connectioninfo | string match -rg '\''\"ssid\":\s*\"(.*)\"'\'' )
             set -U __mist_info_data_async \$baterry \$network
             sleep 5
-            set -U __mist_info_trigger (path mtime /proc)"'
+            set -U __mist_info_trigger (path mtime /proc)" &'
         end
 
         function __mist_info_emitter

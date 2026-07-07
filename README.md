@@ -42,7 +42,7 @@ The istall process will only download the files, whitout set up anything
 
   ```fish
   for file in mist-{async,widgets,decors}.fish
-  set -l url https://raw.githubusercontent.com/H-Emanoel/mist/master/$file
+    set -l url https://raw.githubusercontent.com/H-Emanoel/mist/master/$file
     curl -s $url -o $__fish_config_dir/conf.d/$file
   end
   ```
@@ -88,7 +88,7 @@ Strings with only empty specifiers are hidden, so outside a repo, the sample wil
 ### Common flags
 
 * **-h, --help:** Show more datails
-* **-n, --newline:** Prints each format string into a new line, creating a array. Useful for reduce the functions calls
+* **-n, --newline:** Prints each format string into a new line, creating a array. Useful for reduce functions calls
 
 Example:
 
