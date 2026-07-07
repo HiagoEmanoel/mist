@@ -6,30 +6,35 @@ function fish_prompt
     set -l bronze C98936
     set -l gray 6b737f
 
+    # User and host login info
     set_color -o $orange
     mist_login "╭─(%s %u)"
 
+    # Current working directory path 
     set -l pparts (mist_pwd -n " %s %t%p" %d)
     set_color $gold
     printf "$pparts[1]"
 
+    # Highlighted urrent folder 
     set_color -o
     printf "$pparts[2]"
 
-    set -l gparts (mist_git -n %R%r %C %A%B)
+    set -l gparts (mist_git -n %R%r %C " %A%B")
 
     if test -n "$gparts[1]"
-
         set_color $gold
         printf " ~> "
     end
 
+    # Reference 
     set_color $terracotta
     printf $gparts[1]
 
+    # Dirty/Staging indicator 
     set_color $gray
     printf "$gparts[2]"
 
+    # Remote diverge indicator 
     set_color $bronze
     printf "$gparts[3]"
 

@@ -11,58 +11,53 @@
 > A simple prompt engine for Fish shell
 
 ## Features
-* Async Git Status: Runs in the background, so your terminal never freezes or slows down
-* Async Termux:API requests: Uses Termux:API to get system information on Android in background
-* Native Git Reference Processing: It reads git refs and hashes manually for maximum speed
-* Instant Multi-Shell Sync: When your git status changes, it updates across all open tabs immediately
-* "Make It Yourself": No locked-in or forced configs. You decide exactly how your prompt looks
+
+* **Async Git Status:** Runs in the background, so your terminal never freezes or slows down
+* **Async Termux:API requests:** Uses Termux:API to get system information on Android in background
+* **Native Git Reference Processing:** It reads git refs and hashes manually for maximum speed
+* **Instant Multi-Shell Sync:** When your git status changes, it updates across all open tabs immediately
+* **"Make It Yourself":** No locked-in or forced configs. You decide exactly how your prompt looks
 
 ## Installation
 
+The istall process will only download the files, whitout set up anything
+
 ### Requirements
 
-<ul>
-  <li style="display: flex; align-items: center; margin-bottom: 10px;">
-    <img src="https://img.shields.io/badge/FISH%203.2%2B-34C534?style=for-the-badge&logo=fishshell&logoColor=white" alt="Fish shell 3.2+">
-  </li>
-  <li style="display: flex; align-items: center; margin-bottom: 10px;">
-    <img src="https://img.shields.io/badge/GIT%202.17%2B-F03C2E?style=for-the-badge&logo=git&logoColor=white" alt="Git 2.17+">
-  </li>
-  <li style="display: flex; align-items: center; margin-bottom: 20px;">
-    <img src="https://img.shields.io/badge/NERDFONT%20-FFEB3B?style=for-the-badge&logo=awesomelists&logoColor=black" alt="Nerdfont">
-  </li>
-</ul>
+* ![Static Badge: Fish 3.2+](https://img.shields.io/badge/FISH%203.2%2B-34C534?style=for-the-badge&logo=fishshell&logoColor=white)
+
+* ![Static Badge: Git 2.17+](https://img.shields.io/badge/GIT%202.17%2B-F03C2E?style=for-the-badge&logo=git&logoColor=white)
+
+* ![Static Badge: Nerdfont](https://img.shields.io/badge/NERDFONT%20-FFEB3B?style=for-the-badge&logo=awesomelists&logoColor=black)
 
 **For Android users:**
 
-<ul>
-  <li style="display: flex; align-items: center; margin-bottom: 10px;">
-    <img src="https://img.shields.io/badge/%E2%9D%AF%E2%96%81%20Termux-black?style=for-the-badge" alt="Termux">
-  </li>
-  <li style="display: flex; align-items: center; margin-bottom: 10px;">
-    <img src="https://img.shields.io/badge/%E2%9D%AF%E2%96%81%20Termux:API-black?style=for-the-badge" alt="Termux:API">
-  </li>
-</ul>
+* ![Static Badge: Termux](https://img.shields.io/badge/%E2%9D%AF%E2%96%81%20Termux-black?style=for-the-badge&logo=termux)
 
-Install command:
+* ![Static Badge: Termux:API](https://img.shields.io/badge/%E2%9D%AF%E2%96%81%20Termux:API-black?style=for-the-badge&logo=termux)
 
-```fish
-for file in mist-{async,widgets,decors}.fish
-  curl -s https://raw.githubusercontent.com/H-Emanoel/mist/master/$file -o $__fish_config_dir/conf.d/$file
-end
-```
-In Termux, also run:
+### Steps
 
-```fish
-set -U MIST_ENABLE_TERMUX_API true
-```
+* Download the files to the config folder:
 
-Uninstall:
+  ```fish
+  for file in mist-{async,widgets,decors}.fish
+  set -l url https://raw.githubusercontent.com/H-Emanoel/mist/master/$file
+    curl -s $url -o $__fish_config_dir/conf.d/$file
+  end
+  ```
+* In Termux, enable Termux:API:
 
-```fish
-rm $__fish_config_dir/mist-{git,widgets,decors}.fish
-set -eU (set -nU | grep __mist_)
-```
+  ```fish
+  set -U MIST_ENABLE_TERMUX_API true
+  ```
+
+* To uninstall:
+
+  ```fish
+  rm $__fish_config_dir/mist-{git,widgets,decors}.fish
+  set -eU (set -nU | grep __mist_)
+  ```
 
 > [!NOTE]
 > Mist was developed unsig Linux/Android-only features like `/proc` files, it don't work properly in other systems
@@ -82,18 +77,18 @@ set -eU (set -nU | grep __mist_)
 
 Most of the commands uses `%` based symtax. Example:
 
-```fish
-mist_login "%u"
-mist_git "at %r%C" %A%B # outputs:
-user at main+ ↑
-```
+  ```fish
+  mist_login "%u"
+  mist_git "at %r%C" %A%B # outputs:
+  user at main+ ↑
+  ```
 
 Strings with only empty specifiers are hidden, so outside a repo, the sample will only output the `username`
 
 ### Common flags
 
-* -h, --help: Show more datails
-* -n, --newline: Prints each format string into a new line, creating a array. Useful for reduce the functions calls
+* **-h, --help:** Show more datails
+* **-n, --newline:** Prints each format string into a new line, creating a array. Useful for reduce the functions calls
 
 Example:
 

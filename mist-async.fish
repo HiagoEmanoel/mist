@@ -6,16 +6,15 @@ if status is-interactive
         function __mist_info_runner
             sh -c 'fish -P -c "
             set -U __mist_info_runner_pid \$fish_pid
-            set baterry (termux-battery-status | string match -rg \"percentage\":\s\*\(.\*\))
-            set network (termux-wifi-connectioninfo | string match -rg \"ssid\":\s\*\"\(.\*\)\")
+            set baterry (termux-battery-status | string match -rg '\''\"percentage\":\s*(\d+)'\'')
+            set network (termux-wifi-connectioninfo | string match -rg '\''\"ssid\":\s*\"(.*)\"'\'' )
             set -U __mist_info_data_async \$baterry \$network
             sleep 5
-            set -U __mist_info_trigger (path mtime /proc)" &'
+            set -U __mist_info_trigger (path mtime /proc)"'
         end
 
         function __mist_info_emitter
-            if !
-                test -n "$ANDROID_ROOT" -a -n "$TERMUX_VERSION"
+            if ! test -n "$ANDROID_ROOT" -a -n "$TERMUX_VERSION"
                 return
             end
 
@@ -25,7 +24,7 @@ if status is-interactive
             set -l alive_items
 
             for item in $cur_list
-                set -f pid (string match -r '\d+$' $item)
+                set -l pid (string match -r '\d+$' $item)
                 if test -f "/proc/$pid/comm"
                     string match -rq '^fish$' </proc/$pid/comm
                     and set -a alive_items $item
@@ -51,7 +50,7 @@ if status is-interactive
 
             # Verify if there is a runner alive
             set -l runner_pid "$__mist_info_runner_pid"
-            if test -n "$runner_pid"
+            if test -f "/proc/$runner_pid/comm"
                 string match -rq '^fish$' </proc/$runner_pid/comm
                 and return
             end
@@ -82,6 +81,15 @@ if status is-interactive
                 __mist_info_emitter
             end
         end
+
+    else
+        function __mist_info_trigger_postexec --on-event fish_postexec
+            set -l last_status $status
+            set -l men_usage (math -s0 (string match -rg '^(?:MemAvailable:)\s*(\d+)' </proc/meminfo)/1024)
+            set -l men_total (math -s0 (string match -rg '^(?:MemTotal:)\s*(\d+)' </proc/meminfo)/1024)
+
+            set -g __mist_info_data $last_status $men_usage $men_total 0 unknown
+        end
     end
 
     # Global state
@@ -93,8 +101,7 @@ if status is-interactive
     set -g __mist_git_status false false 0 0
     set -g __mist_last_pwd $PWD
 
-    if !
-        set -q __mist_git_timeout
+    if ! set -q __mist_git_timeout
         set -g __mist_git_timeout 10
     end
 
