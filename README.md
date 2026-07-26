@@ -37,7 +37,7 @@ The install process will only download the files, without setting up anything.
 * To uninstall:
 
   ```fish
-  rm $__fish_config_dir/mist-{async,widgets,decors}.fish
+  rm $__fish_config_dir/conf.d/mist-{async,widgets,decors}.fish
   set -eU (set -nU | grep __mist_)
   ```
   
