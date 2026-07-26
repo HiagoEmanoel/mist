@@ -1,95 +1,14 @@
 # @fish-lsp-disable 4004 2003 3003 4006
 if status is-interactive
-    if test "$MIST_ENABLE_TERMUX_API" = true
-        set -g __mist_info_emitter_timestamp 0
+    # Info trigger: captura status e duração do comando via variáveis nativas do Fish
+    function __mist_info_trigger_postexec --on-event fish_postexec
+        set -l last_status $status
+        set -l cmd_duration $CMD_DURATION
 
-        function __mist_info_runner
-            sh -c 'fish -P -c "
-            set -U __mist_info_runner_pid \$fish_pid
-            set baterry (termux-battery-status | string match -rg '\''\"percentage\":\s*(\d+)'\'')
-            set network (termux-wifi-connectioninfo | string match -rg '\''\"ssid\":\s*\"(.*)\"'\'' )
-            set -U __mist_info_data_async \$baterry \$network
-            sleep 5
-            set -U __mist_info_trigger (path mtime /proc)" &'
-        end
+        test -z "$cmd_duration"
+        and set cmd_duration 0
 
-        function __mist_info_emitter
-            if ! test -n "$ANDROID_ROOT" -a -n "$TERMUX_VERSION"
-                return
-            end
-
-            # Clear dead shells 
-            set -l cur_list $__mist_info_waitlist
-            set -l new_list
-            set -l alive_items
-
-            for item in $cur_list
-                set -l pid (string match -r '\d+$' $item)
-                if test -f "/proc/$pid/comm"
-                    string match -rq '^fish$' </proc/$pid/comm
-                    and set -a alive_items $item
-                end
-            end
-
-            # Update timestamp if the shell already on the list 
-            set -l index (contains -i $fish_pid (string match -r '\d+$' $alive_items))
-            set -l cur_timestamp (path mtime -R /proc)
-
-            if test -n "$index"
-                set new_list $alive_items
-                set -e new_list[$index]
-                set -a new_list $cur_timestamp:$fish_pid
-            else
-                set new_list $alive_items[..4]
-                set -a new_list $cur_timestamp:$fish_pid
-            end
-
-            if test "$new_list" != "$cur_list"
-                set -U __mist_info_waitlist $new_list
-            end
-
-            # Verify if there is a runner alive
-            set -l runner_pid "$__mist_info_runner_pid"
-            if test -f "/proc/$runner_pid/comm"
-                string match -rq '^fish$' </proc/$runner_pid/comm
-                and return
-            end
-
-            __mist_info_runner
-        end
-
-        function __mist_info_trigger_runner --on-variable __mist_info_trigger
-            set -l last_item $__mist_info_waitlist[-1]
-            if test (string match -r '\d+$' $last_item) = $fish_pid
-                __mist_info_runner
-            end
-        end
-
-        function __mist_info_trigger_postexec --on-event fish_postexec
-            set -l last_status $status
-            set -l men_usage (math -s0 (string match -rg '^(?:MemAvailable:)\s*(\d+)' </proc/meminfo)/1024)
-            set -l men_total (math -s0 (string match -rg '^(?:MemTotal:)\s*(\d+)' </proc/meminfo)/1024)
-
-            set -l baterry_and_network 0 unknown
-            if test -n "$__mist_info_data_async"
-                set baterry_and_network $__mist_info_data_async
-            end
-
-            set -g __mist_info_data $last_status $men_usage $men_total $baterry_and_network
-
-            if test (path mtime -R /proc) -gt (math $__mist_info_emitter_timestamp + 5)
-                __mist_info_emitter
-            end
-        end
-
-    else
-        function __mist_info_trigger_postexec --on-event fish_postexec
-            set -l last_status $status
-            set -l men_usage (math -s0 (string match -rg '^(?:MemAvailable:)\s*(\d+)' </proc/meminfo)/1024)
-            set -l men_total (math -s0 (string match -rg '^(?:MemTotal:)\s*(\d+)' </proc/meminfo)/1024)
-
-            set -g __mist_info_data $last_status $men_usage $men_total 0 unknown
-        end
+        set -g __mist_info_data $last_status $cmd_duration
     end
 
     # Global state
@@ -123,7 +42,6 @@ if status is-interactive
         verify-pack config rev-parse list
 
     function __mist_git_getdir
-        # Return the git directory and set the worktree
         set -e __mist_git_wt __mist_git_dir
         set -l worktree
         set -l gitdir
@@ -149,7 +67,6 @@ if status is-interactive
             return
         end
 
-        # Fast verification in current PWD
         if test -d .git
             if path filter -vqt file,dir .git/{$checks}
                 set -g __mist_git_wt $PWD
@@ -158,7 +75,6 @@ if status is-interactive
             end
         end
 
-        # Search up the tree using manual logic
         set -l ignore_dirs $HOME $TERMUX__ROOTFS_DIR (string split ':' $GIT_CEILING_DIRECTORIES)
         set -l splited_pwd $PWD
         while test $splited_pwd[-1] != /
@@ -169,7 +85,7 @@ if status is-interactive
 
         set -l gitdir_location (path filter -d $splited_pwd/.git)[1]
 
-        if test -z "$gitdir_location" # Bare repo detection
+        if test -z "$gitdir_location"
             set -f gitdir_candidate (path filter -f $splited_pwd/config)[1]
             test -z "$gitdir_candidate"
             and return
@@ -186,7 +102,6 @@ if status is-interactive
             return
         end
 
-        # Worktree and dir assignment
         test -z "$worktree"
         and set worktree (path dirname $gitdir_location)
 
@@ -198,7 +113,6 @@ if status is-interactive
     end
 
     function __mist_git_getref
-        # Return git reference
         set -l gitdir $__mist_git_dir
         test -z "$gitdir"
         and return
@@ -245,7 +159,6 @@ if status is-interactive
     end
 
     function __mist_git_process_data
-        # Helper to structure raw git porcelain into local state
         set -l git_data $argv
         set -l is_dirty false
         set -l is_staging false
@@ -270,15 +183,12 @@ if status is-interactive
         printf "%s\n" $is_dirty $is_staging $ahead $behind
     end
 
-    # Emits the background git status
     function __mist_git_emitter
         test -z "$__mist_git_wt"
         and return
 
-        # Use global lock list to prevent simultaneous calls in same worktree
         set -l escaped_wt (string escape --style=regex "$target_wt")
         if string match -rq "\d+:$escaped_wt" $__mist_git_lock
-            # Timeout verification
             set -l wt_mtime (string match -rg "(\d+):$escaped_wt" $__mist_git_lock)
             if test "$wt_mtime" -lt (math (path mtime -R /proc) - $__mist_git_timeout)
                 set -U __mist_git_lock (string match -rv "\d+:$escaped_wt" $__mist_git_lock)
@@ -311,7 +221,6 @@ if status is-interactive
         set -l max_cache 8
         set -l cache_entry "$target_wt $__mist_git_ref $status_data"
 
-        # Move the cache entry to start of the list
         set -l new_cache (string match -rv "^$escaped_wt\s.*" $__mist_git_cache)
         set -p new_cache "$cache_entry"
 
@@ -320,7 +229,6 @@ if status is-interactive
         end
         set -U __mist_git_cache $new_cache
 
-        # Syncronize sessions
         set -U __mist_git_sync "$target_wt" $__mist_git_ref $status_data
         set -U __mist_git_lock (string match -rv "\d+:$escaped_wt" $__mist_git_lock)
 
@@ -332,7 +240,6 @@ if status is-interactive
     end
 
     function __mist_git_sync_handler --on-variable __mist_git_sync
-        # Secondary shells in the same worktree detect global data update
         test -z "$__mist_git_sync"
         and return
 
@@ -354,7 +261,6 @@ if status is-interactive
             __mist_git_getdir
 
             if test -n "$__mist_git_wt"
-                # Register session
                 if ! string match -qr "^$fish_pid:" $__mist_git_sessions
                     set -aU __mist_git_sessions "$fish_pid:$__mist_git_wt"
                 else
@@ -367,7 +273,6 @@ if status is-interactive
                 return
             end
 
-            # Restore from cache
             set -f escape_wt (string escape --style=regex $__mist_git_wt)
             set -f cache_match (string match -r "^$escape_wt\s.+" $__mist_git_cache)
 
@@ -390,11 +295,9 @@ if status is-interactive
             if test "$args[1]" = git -o "$args[1]" = g
                 contains -- "$args[2]" $__mist_git_subcmd_black_list
                 and return
-
             else
                 contains -- "$args[1]" $__mist_git_black_list
                 and return
-
             end
         end
 
@@ -403,11 +306,9 @@ if status is-interactive
     end
 
     function __mist_git_cleaner --on-event fish_exit
-        # Clean current session
         set -eU "__mist_gitout_$fish_pid"
         set -U __mist_git_sessions (string match -rv "^$fish_pid:" $__mist_git_sessions)
 
-        # Batch cleanup of dead processes
         set -l pids (string match -rg '^(\d+):' $__mist_git_sessions)
         set -l dead_pids (string match -rg '^/proc/(\d+)' (path filter -vd /proc/$pids))
 
@@ -419,7 +320,6 @@ if status is-interactive
 
         set -U __mist_git_sessions (string match -rv "^(?:$regex_filter):.+" $__mist_git_sessions)
 
-        # Clear timeouted locks
         if test -n "$__mist_git_lock"
             set -l timestamp (path mtime -R /proc)
             set -l new_lock
@@ -440,7 +340,6 @@ if status is-interactive
     if test -n "$__mist_git_wt"
         set -aU __mist_git_sessions "$fish_pid:$__mist_git_wt"
 
-        # Restore from cache
         set escape_wt (string escape --style=regex $__mist_git_wt)
         set cache_match (string match -r "^$escape_wt\s.+" $__mist_git_cache)
 

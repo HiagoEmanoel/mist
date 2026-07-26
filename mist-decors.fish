@@ -1,14 +1,9 @@
 # @fish-lsp-disable 4004
 if status is-interactive
-    # Secondary widgets and decorative functions
     set -e __mist_clock_cache __mist_timezone
 
     function mist_info
-        # Salva o status imediatamente para não perdê-lo
-        set -l last_status $pipestatus
-
-        # format info string
-        set -l options h/help n/newline
+        set -l options h/help n/newline m/min-time= s/success= f/not-found= i/incorrect= e/error=
         argparse $options -- $argv
         or return
 
@@ -17,71 +12,92 @@ if status is-interactive
                 "Usage: \e[1;33mmist_info\e[0m [OPTIONS] [FORMAT]" \
                 "" \
                 "\e[1mOptions:\e[0m" \
-                "  \e[33m-h, --help\e[0m     Show this help message" \
-                "  \e[33m-n, --newline\e[0m  Print with newline" \
+                "  \e[33m-h, --help\e[0m           Show this help message" \
+                "  \e[33m-n, --newline\e[0m        Print with newline" \
+                "  \e[33m-m, --min-time=MS\e[0m    Min execution time in ms to show %t (default: 0)" \
+                "  \e[33m-s, --success=STR\e[0m    Format for status 0 (default: \"0\")" \
+                "  \e[33m-f, --not-found=STR\e[0m  Format for command not found 127 (default: \"127\")" \
+                "  \e[33m-i, --incorrect=STR\e[0m  Format for incorrect usage 2 (default: \"2\")" \
+                "  \e[33m-e, --error=STR\e[0m      Format for generic error (default: status code)" \
                 "" \
                 "\e[1mFormat Specifiers:\e[0m" \
-                "  \e[32m%b\e[0m  Battery Level" \
-                "  \e[32m%s\e[0m  Last Status" \
-                "  \e[32m%w\e[0m  Network Name" \
-                "  \e[32m%u\e[0m  Memory Usage %" \
-                "  \e[32m%m\e[0m  Memory (Used/Total)" \
+                "  \e[32m%s\e[0m  Status string or symbol" \
+                "  \e[32m%c\e[0m  Raw numeric status code" \
+                "  \e[32m%t\e[0m  Formatted command execution time" \
                 "  \e[32m%%\e[0m  Just a %"
             return
         end
 
-        # Set the default output
-        test -n "$argv"
-        and set -f output $argv
-        or set -f output "%s %b %w %u %m"
-
         set -l last_status "$__mist_info_data[1]"
-        set -l men_usage "$__mist_info_data[2]"
-        set -l men_total "$__mist_info_data[3]"
-        set -l battery "$__mist_info_data[4]"
-        set -l network "$__mist_info_data[5]"
+        set -l cmd_duration "$__mist_info_data[2]"
 
-        if test "$network" = unknown
-            set network unavaliable
+        test -z "$last_status"
+        and set last_status 0
+
+        test -z "$cmd_duration"
+        and set cmd_duration 0
+
+        # Status formatting
+        set -l status_str
+        switch $last_status
+            case 0
+                set -q _flag_s
+                and set status_str $_flag_s
+                or set status_str "✔"
+            case 127
+                set -q _flag_f
+                and set status_str $_flag_f
+                or set status_str "?"
+            case 2
+                set -q _flag_i
+                and set status_str $_flag_i
+                or set status_str "✘"
+            case '*'
+                set -q _flag_e
+                and set status_str $_flag_e
+                or set status_str "✘ $last_status"
         end
 
-        # filter the specifiers and make them unique
-        set -f specifiers (string match -rga -- '(?<!%)%([bwsum])' $output)
-        set specifiers (string match -rga -- '(\w)(?:\s*\1)*' (path sort $specifiers))
+        # Duration formatting (builtins only)
+        set -l min_time 0
+        set -q _flag_m
+        and set min_time $_flag_m
 
-        for spec in $specifiers
-            set -l val
-            switch $spec
-                case b
-                    set val "$battery"
-                case w
-                    set val "$network"
-                case s
-                    set val "$last_status"
-                case u
-                    # Porcentagem de uso de memória com uma casa decimal
-                    if test -n "$men_total" -a "$men_total" -gt 0
-                        set -l pct (math -s1 "$men_usage / $men_total * 100")
-                        set val "$pct%"
-                    else
-                        set val "0.0%"
-                    end
-                case m
-                    # Valor em atual/total
-                    set val "$men_usage/$men_total"
+        set -l time_str ""
+        if test $cmd_duration -ge $min_time -a $cmd_duration -gt 0
+            if test $cmd_duration -lt 1000
+                set time_str {$cmd_duration}ms
+            else if test $cmd_duration -lt 60000
+                set -l sec (math -s1 "$cmd_duration / 1000")
+                set time_str {$sec}s
+            else
+                set -l min (math -s0 "$cmd_duration / 60000")
+                set -l rem_ms (math "$cmd_duration % 60000")
+                set -l sec (math -s0 "$rem_ms / 1000")
+                set time_str {$min}m{$sec}s
             end
-            set output (string replace -ra -- "(?<!%)%$spec" "$val" $output)
         end
 
+        set -l output
+        if test -n "$argv"
+            set output $argv
+        else
+            set output "%s %t"
+        end
+
+        set output (string replace -ra -- "(?<!%)%s" "$status_str" $output)
+        set output (string replace -ra -- "(?<!%)%c" "$last_status" $output)
+        set output (string replace -ra -- "(?<!%)%t" "$time_str" $output)
         set output (string replace -ra -- '%(%+)' '$1' $output)
 
+        set output (string trim -- "$output")
+
         set -q _flag_n
-        and printf "%b\n" $output
+        and printf "%b\n" "$output"
         or printf "%b" "$output"
     end
 
     function mist_date
-        # format date
         set -l options h/help n/newline
         argparse $options -- $argv
         or return
@@ -104,14 +120,12 @@ if status is-interactive
             return
         end
 
-        # Set -f the default output
         test -n "$argv"
         and set -f output $argv
         or set -f output "%w %d/%M/%Y %H:%m:%s"
 
         set -f unix_timestamp (math (path mtime -R /proc) + 1)
 
-        # Init the timezone and date
         if test -z "$__mist_clock_date" -o -z "$__mist_timezone"
             set -l date_out (string split ' ' (date "+%H %d %a %b %y %Y"))
 
@@ -122,10 +136,8 @@ if status is-interactive
         end
 
         set -f date $__mist_clock_date
-
         set -f local_ts (math $unix_timestamp + $__mist_timezone)
 
-        # filter the specifiers and make then unique
         set -f specifiers (string match -rga -- '(?<!%)%([dwMyYHhIms])' $output)
         set specifiers (string match -rga -- '(\w)(?:\s*\1)*' (path sort $specifiers))
 
@@ -171,7 +183,6 @@ if status is-interactive
     end
 
     function mist_line
-        # Print a line of the given string
         set -l options h/help p/pad= s/size= a/aling= n/newline
         argparse $options -- $argv
         or return
@@ -224,21 +235,17 @@ if status is-interactive
         and set pad $_flag_p
         or set pad 0
 
-        # Calculate the number of repeats to match size
         set -f charcount (math -s0 $COLUMNS / \($charsize + $pad\) x $size / 100)
         set -f linebuff (string repeat -n $charcount -- "$char"\n)
 
         set -f padstr (string repeat -n $pad -- ' ')
-
         set -f finaline (string join "$padstr" -- $linebuff)
 
-        # Fix alingnment
         set -f aling
         set -q _flag_a
         and set aling $_flag_a
         or set aling left
 
-        # Save current cursor position
         printf "\e[s"
 
         switch (string sub -l 1 -- $aling)

@@ -1,10 +1,8 @@
 # @fish-lsp-disable 4004 2003
 if status is-interactive
-    # The main mist widgets
     set -e __mist_pwd_cache __mist_git_ref_date __mist_git_status_cache __mist_login_cache
 
     function mist_login
-        # Generates a login string
         set -l options h/help n/newline
         argparse $options -- $argv
         or return
@@ -35,7 +33,6 @@ if status is-interactive
             return
         end
 
-        # Set -l the default output
         set -l output
         test -n "$argv"
         and set output $argv
@@ -54,7 +51,6 @@ if status is-interactive
         or printf "%b" "$output"
     end
 
-    # Find the symbol of the distro
     if test -z "$__mist_login_distrosym"
         set -f raw_list \
             "
@@ -125,12 +121,10 @@ if status is-interactive
     end
 
     function mist_git
-        # format git information
-        set -l options h/help b/branch= c/commit r/remote t/tag d/dirty= s/staging= a/ahead= i/behind= n/newline
+        set -l options h/help b/branch= c/commit= r/remote= t/tag= d/dirty= s/staging= a/ahead= i/behind= n/newline
         argparse $options -- $argv
         or return
 
-        # Cache processing
         if test "$__mist_git_prompt_cache[1]" = "$__mist_git_ref$__mist_git_status$argv$argv_opts" -a -n "$__mist_git_prompt_cache[1]"
             test -z "$__mist_git_wt"
             and return
@@ -174,8 +168,7 @@ if status is-interactive
                 "  \e[32m%S\e[0m  Staging symbol (shows if there are staged changes)" \
                 "  \e[32m%C\e[0m  Smart Change: uses \e[3mStaging\e[0m symbol if everything is staged," \
                 "      otherwise uses the \e[3mDirty\e[0m symbol." \
-                "  \e[32m%%\e[0m  Escape character: prevents the next character from being" \
-                "      interpreted (e.g., \e[36m%%A\e[0m outputs a literal \e[36m%A\e[0m)" \
+                "  \e[32m%%\e[0m  Escape character" \
                 "" \
                 "\e[1mExample:\e[0m" \
                 "  \e[32m\$\e[0m mist_git \"%R%r\" \"State: %C\"" \
@@ -224,7 +217,6 @@ if status is-interactive
 
         set -l output_bak $output
 
-        # Replace every specifier in output
         set -l specifiers (string match -rga -- '(?<!%)%([RrhtabABDS])' $output)
         set specifiers (string match -rga -- '(\w)(?:\s*\1)*' (path sort $specifiers))
         for spec in $specifiers
@@ -289,7 +281,6 @@ if status is-interactive
             set output (string replace -ra -- "(?<!%)%$spec" "$val" $output)
         end
 
-        # clean blocks with only empty keys
         set -l count 1
         for block in $output
             if test "$block" = "$output_bak[$count]"
@@ -298,7 +289,6 @@ if status is-interactive
             set count (math $count + 1)
         end
 
-        # Process non-replaced specifiers and scapes
         set output (string replace -ra -- '(?<!%)%([RrhtabABDS])' '' $output)
         set output (string replace -ra -- '%(%+)' '$1' $output)
 
@@ -310,7 +300,7 @@ if status is-interactive
     end
 
     function mist_pwd
-        set -l options h/help H/homesym= F/foldersym= s/separator= T/no-tilde m/max-size= n/newline
+        set -l options h/help H/homesym= F/foldersym= s/separator= T/no-tilde m/max-size= p/fish-parent n/newline
         argparse $options -- $argv
         or return
 
@@ -319,13 +309,14 @@ if status is-interactive
                 "\e[1mUsage:\e[0m \e[1;33mmist_pwd\e[0m [OPTIONS] [FORMAT] ..." \
                 "" \
                 "\e[1mOptions:\e[0m" \
-                "  \e[33m-h, --help\e[0m       Show this help message and exit" \
-                "  \e[33m-H, --homesym\e[0m    Symbol for home folder (default: \"󰋜\")" \
-                "  \e[33m-F, --foldersym\e[0m  Symbol for generic folders (default: \"\")" \
-                "  \e[33m-s, --separator\e[0m  Symbol for directory separation (default: \"/\")" \
-                "  \e[33m-T, --no-tilde\e[0m   Show full home path instead of '~'" \
-                "  \e[33m-m, --max-size\e[0m   Max length of the path before shortening (default: 50)" \
-                "  \e[33m-n, --newline\e[0m    Print each output on a new line" \
+                "  \e[33m-h, --help\e[0m         Show this help message and exit" \
+                "  \e[33m-H, --homesym\e[0m      Symbol for home folder (default: \"󰋜\")" \
+                "  \e[33m-F, --foldersym\e[0m    Symbol for generic folders (default: \"󰝰\")" \
+                "  \e[33m-s, --separator\e[0m    Symbol for directory separation (default: \"/\")" \
+                "  \e[33m-T, --no-tilde\e[0m     Show full home path instead of '~'" \
+                "  \e[33m-m, --max-size\e[0m     Max length of path before shortening (default: 30)" \
+                "  \e[33m-p, --fish-parent\e[0m  Shorten parent directories Fish-style (e.g. ~/D/P/mist)" \
+                "  \e[33m-n, --newline\e[0m      Print each output on a new line" \
                 "" \
                 "\e[1mFormat Specifiers:\e[0m" \
                 "  \e[32m%s\e[0m  Context symbol (Home / Generic)" \
@@ -336,12 +327,13 @@ if status is-interactive
                 "\e[1mExamples:\e[0m" \
                 "  \$ mist_pwd \"%s %t%p%d\"                   \e[0m# Standard look\e[0m" \
                 "  ~/mist/tools" \
+                "  \$ mist_pwd -p \"%t%p%d\"                   \e[0m# Fish-style parent shortening\e[0m" \
+                "  ~/m/tools" \
                 "  \$ mist_pwd -s \" > \" \"%p\e[32m%d\e[0m\"               \e[0m# Arrow separated path\e[0m" \
                 "  > mist > tools"
             return
         end
 
-        # Cache
         if test "$__mist_pwd_cache[1]" = "$PWD$argv$argv_opts" -a -n "$__mist_pwd_cache"
             set -l output $__mist_pwd_cache[2..]
 
@@ -366,75 +358,113 @@ if status is-interactive
         and set separator $_flag_s
         or set separator /
 
-        set -l dirname (path basename $PWD)
-        set -l maxsize
-        set -l maxsize_total
-
-        if set -q _flag_m
-            set maxsize_total $_flag_m
-            set maxsize (math $maxsize_total - (string length "$dirname"))
-            test $maxsize -lt 0
-            and set maxsize 0
-        else
-            set maxsize_total 30
-            set maxsize (math $maxsize_total - (string length "$dirname"))
-            test $maxsize -lt 0
-            and set maxsize 0
-        end
-
         set -l tilde
         set -q _flag_T
         and set tilde (path basename "$HOME")
         or set tilde '~'
 
-        # Default prompt
+        set -l symbol
+        set -l dirpath ""
+        set -l dirname ""
+
+        # Correção do comportamento do diretório /
+        if test "$PWD" = /
+            set symbol "$foldersym"
+            set tilde ""
+            set dirpath ""
+            set dirname /
+        else if test "$HOME" = "$PWD"
+            set symbol "$homesym"
+            set dirname ""
+            set dirpath ""
+        else
+            set -l homepath (string escape --style=regex -- "$HOME")
+            set -l maxsize_total 30
+            set -q _flag_m
+            and set maxsize_total $_flag_m
+
+            if string match -rq "^$homepath/" "$PWD"
+                set symbol "$foldersym"
+                set dirpath (string match -rg -- "^$homepath(.*?)[^/]*\$" "$PWD")
+                set dirname (path basename "$PWD")
+
+                if set -q _flag_p
+                    set -l parts (string split -n / -- "$dirpath")
+                    set -l short_parts
+                    for part in $parts
+                        if string match -q '.*' -- "$part"
+                            set -a short_parts (string sub -l 2 -- "$part")
+                        else
+                            set -a short_parts (string sub -l 1 -- "$part")
+                        end
+                    end
+                    if test -n "$short_parts"
+                        set dirpath / (string join / -- $short_parts) /
+                    else
+                        set dirpath /
+                    end
+                else
+                    set -l maxsize (math $maxsize_total - (string length "$dirname"))
+                    test $maxsize -lt 0
+                    and set maxsize 0
+
+                    set -l cutpath (string sub -s -$maxsize -- (string replace -- / "$separator" "$dirpath"))
+                    set -l maxdirs (count (string match -ra -- (string escape --style=regex -- "$separator") "$cutpath"))
+
+                    if test "$maxdirs" = 0
+                        if test "$dirpath" != /
+                            set dirpath /…/
+                        end
+                        set dirname (string shorten -l -m $maxsize_total "$dirname")
+                    else
+                        set dirpath (string replace -r -- "(^/)?.+((?:/[^/]+){$maxdirs}/\$)" '$1…$2' "$dirpath")
+                    end
+                end
+            else
+                set tilde ""
+                set symbol "$foldersym"
+                set dirpath (path dirname "$PWD")
+                set dirname (path basename "$PWD")
+
+                if test "$dirpath" = /
+                    set dirpath /
+                else if set -q _flag_p
+                    set -l parts (string split -n / -- "$dirpath")
+                    set -l short_parts
+                    for part in $parts
+                        if string match -q '.*' -- "$part"
+                            set -a short_parts (string sub -l 2 -- "$part")
+                        else
+                            set -a short_parts (string sub -l 1 -- "$part")
+                        end
+                    end
+                    set dirpath / (string join / -- $short_parts) /
+                else
+                    set -l maxsize (math $maxsize_total - (string length "$dirname"))
+                    test $maxsize -lt 0
+                    and set maxsize 0
+
+                    set -l cutpath (string sub -s -$maxsize -- (string replace -- / "$separator" "$dirpath"))
+                    set -l maxdirs (count (string match -ra -- (string escape --style=regex -- "$separator") "$cutpath"))
+
+                    if test "$maxdirs" = 0
+                        set dirpath …/
+                        set dirname (string shorten -l -m $maxsize_total "$dirname")
+                    else
+                        set dirpath (string replace -r -- ".+((?:/[^/]+){$maxdirs}\$)" '…$1' "$dirpath")/
+                    end
+                end
+            end
+        end
+
+        if test "$separator" != / -a -n "$dirpath"
+            set dirpath (string replace -a -- / "$separator" "$dirpath")
+        end
+
         set -l output
         test -n "$argv"
         and set output $argv
         or set output "%s %t%p%d"
-
-        set -l homepath (string escape --style=regex -- "$HOME")
-        set -l symbol
-        set -l dirpath
-
-        if test "$HOME" = "$PWD"
-            set symbol "$homesym"
-            set dirname ""
-            set dirpath ""
-        else if string match -rq "^$homepath/" "$PWD"
-            # Triggers if the pwd is ahead home
-            set symbol "$foldersym"
-            set dirpath (string match -rg  -- "^$homepath(.*?)[^/]*\$" "$PWD")
-
-            # Shorts the dirpath
-            set -l cutpath (string sub -s -$maxsize -- (string replace -- / "$separator" "$dirpath"))
-            set -l maxdirs (count (string match -ra -- (string escape --style=regex -- "$separator") "$cutpath"))
-
-            if test "$maxdirs" = 0
-                if test "$dirpath" != /
-                    set dirpath /…/
-                end
-                set dirname (string shorten -l -m $maxsize_total (path basename $PWD))
-                set dirpath (string replace -r -- "(^/)?.+((?:/[^/]+){$maxdirs}/\$)" '$1…$2' "$dirpath")
-            end
-        else
-            set tilde ""
-            set symbol "$foldersym"
-            # Shorts the dirpath
-            set dirpath (path dirname "$PWD")
-
-            set -l cutpath (string sub -s -$maxsize -- (string replace -- / "$separator" "$dirpath"))
-            set -l maxdirs (count (string match -ra -- (string escape --style=regex -- "$separator") "$cutpath"))
-
-            if test "$maxdirs" = 0
-                set dirpath …/
-                set dirname (string shorten -l -m $maxsize_total (path basename $PWD))
-            else
-                set dirpath (string replace -r -- ".+((?:/[^/]+){$maxdirs}\$)" '…$1' "$dirpath")/
-            end
-        end
-
-        set dirpath (string replace -a -- / "$separator" $dirpath)
 
         set output (string replace -a -- "%s" "$symbol" $output)
         set output (string replace -a -- "%p" "$dirpath" $output)

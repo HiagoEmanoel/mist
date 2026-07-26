@@ -1,6 +1,7 @@
 # @fish-lsp-disable 4004
 function fish_prompt
     set last_status $status
+
     # Theme colors (Catppuccin Macchiato style)  
     set -l color_icon f5a97f
     set -l color_user eed49f
@@ -13,7 +14,7 @@ function fish_prompt
     # Get login components
     set user_parts (mist_login -n "%s" " %u ")
 
-    # Segment 1: Left rounded cap + Icon/Prefix  
+    # Segment 1: Left rounded cap + Icon
     set_color $color_icon
     printf ""
     set_color $color_dark -b $color_icon
@@ -25,11 +26,11 @@ function fish_prompt
     set_color $color_dark -b $color_user
     printf "%s" $user_parts[2]
 
-    # Segment 3: Working Directory 
+    # Segment 3: Working Directory (Com encurtamento estilo Fish)
     set_color $color_user -b $color_pwd
     printf ""
     set_color $color_dark -b $color_pwd
-    mist_pwd " %s %t%p%d "
+    mist_pwd -p " %s %t%p%d "
 
     # Segment 4: Git Status 
     set -l git_part (mist_git -n " %R%r%C %A%B")
