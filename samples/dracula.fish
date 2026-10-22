@@ -7,7 +7,7 @@ function fish_prompt
     set -l green 50fa7b
     set -l comment 6272a4
 
-    # Linha 1: Login + PWD + Git
+    # Line 1: login + PWD + git
     set_color $purple
     mist_login "┌──[%s %u@%h]"
 
@@ -18,7 +18,7 @@ function fish_prompt
     mist_git " on %R%r%C" "%A%B"
 
     echo
-    # Linha 2: Símbolo do Prompt
+    # Line 2: prompt symbol
     set_color $purple
     printf "└──❯ "
     set_color normal
@@ -29,10 +29,10 @@ function fish_right_prompt
     set -l red ff5555
     set -l green 50fa7b
 
-    # Eleva o cursor para ficar na mesma linha de cima
+    # Move cursor up to align with the line above
     echo -e "\e[1A"
 
-    # Tempo de execução (se > 500ms) e ícone de status
+    # Duration (if > 500ms) and status icon
     set_color $comment
     mist_info -m 500 -s "✔ " -f "✘ 127 " -i "⚡ 2 " -e "✘ %c " "%s %t"
 

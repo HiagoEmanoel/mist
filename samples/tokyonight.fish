@@ -7,7 +7,7 @@ function fish_prompt
     set -l red f7768e
     set -l comment 565f89
 
-    # Linha 1: Contexto completo (Login, Path, Git)
+    # Line 1: full context (login, path, git)
     set_color $magenta
     mist_login "╭─ %s %u "
 
@@ -18,11 +18,11 @@ function fish_prompt
     mist_git "  %r%C" "%A%B"
 
     echo
-    # Linha 2: Indicador dinâmico de status do comando
+    # Line 2: dynamic command-status indicator
     set_color $magenta
     printf "╰─"
 
-    # Cor dinâmica para a seta dependendo do sucesso/erro do comando
+    # Arrow color based on last command success/failure
     set -l status_code (mist_info "%c")
     if test "$status_code" = 0
         set_color $green
@@ -40,7 +40,7 @@ function fish_right_prompt
 
     echo -e "\e[1A"
 
-    # Tempo de execução elegante + relógio estético
+    # Duration and clock
     set_color $comment
     mist_info -m 1000 "%t "
 

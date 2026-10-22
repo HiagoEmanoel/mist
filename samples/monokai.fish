@@ -8,7 +8,7 @@ function fish_prompt
     set -l cyan 66d9ef
     set -l gray 75715e
 
-    # Usuário e Host
+    # User and host
     set_color $green
     mist_login "%u"
     set_color $gray
@@ -16,11 +16,11 @@ function fish_prompt
     set_color $cyan
     mist_login "%h "
 
-    # Diretório
+    # Working directory
     set_color $yellow
     mist_pwd -p "%s %t%p%d"
 
-    # Informações do Git
+    # Git status
     set_color $pink
     mist_git " [%R%r%C]" "%A%B"
 
@@ -37,7 +37,7 @@ function fish_right_prompt
 
     echo -e "\e[1A"
 
-    # Duração do comando em destaque discreto e horário
+    # Command duration (subtle) and clock
     set_color $gray
     mist_info -m 1000 -s "" -e "[err:%c]" "%t %s"
 

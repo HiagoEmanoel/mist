@@ -57,7 +57,7 @@ function fish_right_prompt
     # Move cursor up
     echo -e "\e[1A"
 
-    # Status e tempo de execução (só exibe %t se o comando levar > 200ms)
+    # Exit status and duration (show %t only if command took > 200ms)
     set -l raw_status (mist_info "%c")
     if test "$raw_status" = 0
         set_color -o $leaf_green
@@ -70,7 +70,7 @@ function fish_right_prompt
     mist_info -m 200 -s "•󰄬 " -f "•? " -i "•✗ " -e "•✗ [%c]" "%s %t "
     set_color normal
 
-    # Display da hora
+    # Clock
     set_color $gray
     mist_date "%H:%m "
     set_color normal

@@ -1,6 +1,6 @@
 # @fish-lsp-disable 4004 2003 3003 4006
 if status is-interactive
-    # Info trigger: captura status e duração do comando via variáveis nativas do Fish
+    # Capture last command status and duration via Fish postexec event
     function __mist_info_trigger_postexec --on-event fish_postexec
         set -l last_status $status
         set -l cmd_duration $CMD_DURATION
@@ -11,7 +11,7 @@ if status is-interactive
         set -g __mist_info_data $last_status $cmd_duration
     end
 
-    # Global state
+    # Reset and initialize global git prompt state
     set -e __mist_git_wt \
         __mist_git_dir \
         __mist_git_ref \
@@ -24,7 +24,7 @@ if status is-interactive
         set -g __mist_git_timeout 10
     end
 
-    # Blacklist configuration
+    # Commands that never trigger a git status refresh
     set -g __mist_git_black_list \
         ls ll la pwd dir vdir du df string ps pstree kill \
         cat less more tail head bat glow peek fastfetch \
@@ -335,7 +335,7 @@ if status is-interactive
         end
     end
 
-    # Startup
+    # Initialize git state on shell startup
     __mist_git_getdir
     if test -n "$__mist_git_wt"
         set -aU __mist_git_sessions "$fish_pid:$__mist_git_wt"

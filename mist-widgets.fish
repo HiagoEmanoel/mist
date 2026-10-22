@@ -367,7 +367,7 @@ if status is-interactive
         set -l dirpath ""
         set -l dirname ""
 
-        # Correção do comportamento do diretório /
+        # Special-case root directory display
         if test "$PWD" = /
             set symbol "$foldersym"
             set tilde ""

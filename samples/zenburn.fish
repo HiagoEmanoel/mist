@@ -8,30 +8,30 @@ function fish_prompt
     set -l zen_red cc9393
     set -l zen_yellow e0cf9f
 
-    # Linha decorativa
+    # Decorative line
     set_color $zen_gray
     mist_line .
 
-    # User e login
+    # User / login
     set_color $zen_green
     mist_login "%s %u "
 
-    # Diretório e nome da pasta atual
+    # Directory path and current folder name
     set_color $zen_cyan -d
     mist_pwd -p "%s %t%p"
 
     set_color -o $zen_white
     mist_pwd "%d "
 
-    # Status Git
+    # Git status
     set_color $zen_red
     mist_git "%R%r%C %A%B"
 
-    # Status de erro/tempo do comando anterior se demorou mais de 1s
+    # Previous command error/duration (only if > 1s)
     set_color $zen_yellow
     mist_info -m 1000 -s "" -e " [%c]" " %t%s"
 
-    # Símbolo do prompt
+    # Prompt symbol
     set_color $zen_green
     printf "\n> "
 

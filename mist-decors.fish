@@ -37,7 +37,7 @@ if status is-interactive
         test -z "$cmd_duration"
         and set cmd_duration 0
 
-        # Status formatting
+        # Map exit status to display string
         set -l status_str
         switch $last_status
             case 0
@@ -58,7 +58,7 @@ if status is-interactive
                 or set status_str "✘ $last_status"
         end
 
-        # Duration formatting (builtins only)
+        # Format duration with ms/s/m units (no external tools)
         set -l min_time 0
         set -q _flag_m
         and set min_time $_flag_m

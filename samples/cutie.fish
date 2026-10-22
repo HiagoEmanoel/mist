@@ -26,7 +26,7 @@ function fish_prompt
     set_color $color_dark -b $color_user
     printf "%s" $user_parts[2]
 
-    # Segment 3: Working Directory (Com encurtamento estilo Fish)
+    # Segment 3: Working directory (Fish-style shortening)
     set_color $color_user -b $color_pwd
     printf ""
     set_color $color_dark -b $color_pwd
