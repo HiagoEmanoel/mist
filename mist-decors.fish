@@ -15,10 +15,10 @@ if status is-interactive
                 "  \e[33m-h, --help\e[0m           Show this help message" \
                 "  \e[33m-n, --newline\e[0m        Print with newline" \
                 "  \e[33m-m, --min-time=MS\e[0m    Min execution time in ms to show %t (default: 0)" \
-                "  \e[33m-s, --success=STR\e[0m    Format for status 0 (default: \"0\")" \
-                "  \e[33m-f, --not-found=STR\e[0m  Format for command not found 127 (default: \"127\")" \
-                "  \e[33m-i, --incorrect=STR\e[0m  Format for incorrect usage 2 (default: \"2\")" \
-                "  \e[33m-e, --error=STR\e[0m      Format for generic error (default: status code)" \
+                "  \e[33m-s, --success=STR\e[0m    Format for status 0 (default: \"✔\")" \
+                "  \e[33m-f, --not-found=STR\e[0m  Format for command not found 127 (default: \"?\")" \
+                "  \e[33m-i, --incorrect=STR\e[0m  Format for incorrect usage 2 (default: \"✘\")" \
+                "  \e[33m-e, --error=STR\e[0m      Format for generic error (default: \"✘ <status>\")" \
                 "" \
                 "\e[1mFormat Specifiers:\e[0m" \
                 "  \e[32m%s\e[0m  Status string or symbol" \
@@ -80,21 +80,23 @@ if status is-interactive
 
         set -l output
         if test -n "$argv"
-            set output $argv
+            set output "$argv"
         else
             set output "%s %t"
         end
 
-        set output (string replace -ra -- "(?<!%)%s" "$status_str" $output)
-        set output (string replace -ra -- "(?<!%)%c" "$last_status" $output)
-        set output (string replace -ra -- "(?<!%)%t" "$time_str" $output)
-        set output (string replace -ra -- '%(%+)' '$1' $output)
+        # Substituição das especificações de formato de maneira segura
+        set output (string replace -ra -- '(?<!%)%s' "$status_str" "$output")
+        set output (string replace -ra -- '(?<!%)%c' "$last_status" "$output")
+        set output (string replace -ra -- '(?<!%)%t' "$time_str" "$output")
+        set output (string replace -ra -- '%%' '%' "$output")
 
-        set output (string trim -- "$output")
-
-        set -q _flag_n
-        and printf "%b\n" "$output"
-        or printf "%b" "$output"
+        # Impressão usando %b para renderizar sequências ANSI (ex: cores) sem corromper com %s simples
+        if set -q _flag_n
+            printf "%b\n" "$output"
+        else
+            printf "%b" "$output"
+        end
     end
 
     function mist_date
