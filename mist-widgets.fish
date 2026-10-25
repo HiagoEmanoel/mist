@@ -1,6 +1,6 @@
 # @fish-lsp-disable 4004 2003
 if status is-interactive
-    set -e __mist_pwd_cache __mist_git_ref_date __mist_git_status_cache __mist_login_cache
+    set -e __mist_pwd_cache __mist_git_ref_date __mist_git_status_cache __mist_login_cache __mist_login_extra
 
     function mist_login
         set -l options h/help n/newline
@@ -9,17 +9,18 @@ if status is-interactive
 
         if set -q _flag_h
             printf "%b\n" \
-                "Usage: \e[1;33mmist_login\e[0m [OPTIONS] [FORMAT]" \
+                "Usage: $__mist_h_cmd"mist_login"$__mist_h_rst [OPTIONS] [FORMAT]" \
                 "" \
-                "\e[1mOptions:\e[0m" \
-                "  \e[33m-h, --help\e[0m     Show this help message" \
-                "  \e[33m-n, --newline\e[0m  Print with newline" \
+                "$__mist_h_hdr"Options:"$__mist_h_rst" \
+                "  $__mist_h_opt"-h, --help"$__mist_h_rst"     Show this help message" \
+                "  $__mist_h_opt"-n, --newline"$__mist_h_rst"  Print with newline" \
                 "" \
-                "\e[1mFormat Specifiers:\e[0m" \
-                "  \e[32m%u\e[0m  User name" \
-                "  \e[32m%h\e[0m  Hostname" \
-                "  \e[32m%s\e[0m  The distro symbol" \
-                "  \e[32m%%\e[0m  Just a %"
+                "$__mist_h_hdr"Format Specifiers:"$__mist_h_rst" \
+                "  $__mist_h_spec"%u"$__mist_h_rst"  User name" \
+                "  $__mist_h_spec"%h"$__mist_h_rst"  Hostname" \
+                "  $__mist_h_spec"%s"$__mist_h_rst"  The distro symbol" \
+                "  $__mist_h_spec"%e"$__mist_h_rst"  Extra runtime (docker/udocker/proot/...)" \
+                "  $__mist_h_spec"%%"$__mist_h_rst"  Just a %"
             return
         end
 
@@ -41,6 +42,7 @@ if status is-interactive
         set output (string replace -ra -- "(?<!%)%h" "$hostname" $output)
         set output (string replace -ra -- "(?<!%)%u" "$USER" $output)
         set output (string replace -ra -- "(?<!%)%s" "$__mist_login_distrosym" $output)
+        set output (string replace -ra -- "(?<!%)%e" "$__mist_login_extra" $output)
 
         set output (string replace -ra -- '%(%+)' '$1' $output)
 
@@ -98,10 +100,10 @@ if status is-interactive
         set -l symbolist (string match -ra '[^\w\s]' $raw_list)
         set -l distro
 
-        if test -n "$ANDROID_ROOT"
-            set distro android
-        else if test -f /etc/os-release
+        if test -f /etc/os-release
             set distro (string match -rg '^ID=(\w+)' < /etc/os-release)
+        else if test -n "$ANDROID_ROOT"
+            set distro android
         end
 
         set -l distrosym
@@ -117,7 +119,18 @@ if status is-interactive
             set distrosym 
         end
 
+        # Extra runtime context from env vars only (no external procs)
+        set -l extra
+        if set -q container
+            set extra $container
+        else if set -q UDOCKER_DIR
+            set extra udocker
+        else if set -q PROOT_TMP_DIR; or set -q PROOT_NO_SECCOMP; or set -q PROOT
+            set extra proot
+        end
+
         set -U __mist_login_distrosym $distrosym
+        set -U __mist_login_extra $extra
     end
 
     function mist_git
@@ -139,42 +152,42 @@ if status is-interactive
 
         if set -q _flag_help
             printf "%b\n" \
-                "Usage: \e[1;33mmist_git\e[0m [OPTIONS] [FORMAT]..." \
+                "Usage: $__mist_h_cmd"mist_git"$__mist_h_rst [OPTIONS] [FORMAT]..." \
                 "" \
                 "Prints git status information. If multiple formats are given, returns an array." \
                 "" \
-                "\e[1mOptions:\e[0m" \
-                "  \e[33m-h, --help\e[0m         Show this help message and exit" \
-                "  \e[33m-b, --branch=STR\e[0m   Branch symbol  (default: \"\")" \
-                "  \e[33m-c, --commit=STR\e[0m   Commit symbol  (default: \"@\")" \
-                "  \e[33m-r, --remote=STR\e[0m   Remote symbol  (default: \"\")" \
-                "  \e[33m-t, --tag=STR\e[0m      Tag symbol     (default: \"󰓹\")" \
-                "  \e[33m-d, --dirty=STR\e[0m    Dirty symbol   (default: \"+\")" \
-                "  \e[33m-s, --staging=STR\e[0m  Staging symbol (default: \"*\")" \
-                "  \e[33m-a, --ahead=STR\e[0m    Ahead symbol   (default: \"↑\")" \
-                "  \e[33m-i, --behind=STR\e[0m   Behind symbol  (default: \"↓\")" \
-                "  \e[33m-n, --newline\e[0m      Print each format argument on a new line" \
+                "$__mist_h_hdr"Options:"$__mist_h_rst" \
+                "  $__mist_h_opt"-h, --help"$__mist_h_rst"         Show this help message and exit" \
+                "  $__mist_h_opt"-b, --branch=STR"$__mist_h_rst"   Branch symbol  (default: \"\")" \
+                "  $__mist_h_opt"-c, --commit=STR"$__mist_h_rst"   Commit symbol  (default: \"@\")" \
+                "  $__mist_h_opt"-r, --remote=STR"$__mist_h_rst"   Remote symbol  (default: \"\")" \
+                "  $__mist_h_opt"-t, --tag=STR"$__mist_h_rst"      Tag symbol     (default: \"󰓹\")" \
+                "  $__mist_h_opt"-d, --dirty=STR"$__mist_h_rst"    Dirty symbol   (default: \"+\")" \
+                "  $__mist_h_opt"-s, --staging=STR"$__mist_h_rst"  Staging symbol (default: \"*\")" \
+                "  $__mist_h_opt"-a, --ahead=STR"$__mist_h_rst"    Ahead symbol   (default: \"↑\")" \
+                "  $__mist_h_opt"-i, --behind=STR"$__mist_h_rst"   Behind symbol  (default: \"↓\")" \
+                "  $__mist_h_opt"-n, --newline"$__mist_h_rst"      Print each format argument on a new line" \
                 "" \
-                "\e[1mFormat Specifiers:\e[0m" \
-                "  \e[32m%R\e[0m  Reference symbol (branch/tag/commit/remote)" \
-                "  \e[32m%r\e[0m  Reference name (e.g., 'main' or 'v1.0')" \
-                "  \e[32m%h\e[0m  Short commit hash" \
-                "  \e[32m%t\e[0m  Type of the current reference" \
-                "  \e[32m%a\e[0m  Number of commits ahead of remote" \
-                "  \e[32m%b\e[0m  Number of commits behind remote" \
-                "  \e[32m%A\e[0m  Symbol for 'ahead' (only shows if %a > 0)" \
-                "  \e[32m%B\e[0m  Symbol for 'behind' (only shows if %b > 0)" \
-                "  \e[32m%D\e[0m  Dirty symbol (shows if there are unstaged changes)" \
-                "  \e[32m%S\e[0m  Staging symbol (shows if there are staged changes)" \
-                "  \e[32m%C\e[0m  Smart Change: uses \e[3mStaging\e[0m symbol if everything is staged," \
+                "$__mist_h_hdr"Format Specifiers:"$__mist_h_rst" \
+                "  $__mist_h_spec"%R"$__mist_h_rst"  Reference symbol (branch/tag/commit/remote)" \
+                "  $__mist_h_spec"%r"$__mist_h_rst"  Reference name (e.g., 'main' or 'v1.0')" \
+                "  $__mist_h_spec"%h"$__mist_h_rst"  Short commit hash" \
+                "  $__mist_h_spec"%t"$__mist_h_rst"  Type of the current reference" \
+                "  $__mist_h_spec"%a"$__mist_h_rst"  Number of commits ahead of remote" \
+                "  $__mist_h_spec"%b"$__mist_h_rst"  Number of commits behind remote" \
+                "  $__mist_h_spec"%A"$__mist_h_rst"  Symbol for 'ahead' (only shows if %a > 0)" \
+                "  $__mist_h_spec"%B"$__mist_h_rst"  Symbol for 'behind' (only shows if %b > 0)" \
+                "  $__mist_h_spec"%D"$__mist_h_rst"  Dirty symbol (shows if there are unstaged changes)" \
+                "  $__mist_h_spec"%S"$__mist_h_rst"  Staging symbol (shows if there are staged changes)" \
+                "  $__mist_h_spec"%C"$__mist_h_rst"  Smart Change: uses \e[3mStaging\e[0m symbol if everything is staged," \
                 "      otherwise uses the \e[3mDirty\e[0m symbol." \
-                "  \e[32m%%\e[0m  Escape character" \
+                "  $__mist_h_spec"%%"$__mist_h_rst"  Escape character" \
                 "" \
-                "\e[1mExample:\e[0m" \
-                "  \e[32m\$\e[0m mist_git \"%R%r\" \"State: %C\"" \
-                "\e[1mOutput:\e[0m" \
+                "$__mist_h_hdr"Example:"$__mist_h_rst" \
+                "  $__mist_h_spec"\$"$__mist_h_rst" mist_git \"%R%r\" \"State: %C\"" \
+                "$__mist_h_hdr"Output:"$__mist_h_rst" \
                 "  main state: +" \
-                "\e[1mDefault:\e[0m \"[%R%r%C] %A%B\""
+                "$__mist_h_hdr"Default:"$__mist_h_rst" \"[%R%r%C] %A%B\""
             return
         end
 
@@ -306,30 +319,30 @@ if status is-interactive
 
         if set -q _flag_h
             printf "%b\n" \
-                "\e[1mUsage:\e[0m \e[1;33mmist_pwd\e[0m [OPTIONS] [FORMAT] ..." \
+                "$__mist_h_hdr"Usage:"$__mist_h_rst" $__mist_h_cmd"mist_pwd"$__mist_h_rst [OPTIONS] [FORMAT] ..." \
                 "" \
-                "\e[1mOptions:\e[0m" \
-                "  \e[33m-h, --help\e[0m         Show this help message and exit" \
-                "  \e[33m-H, --homesym\e[0m      Symbol for home folder (default: \"󰋜\")" \
-                "  \e[33m-F, --foldersym\e[0m    Symbol for generic folders (default: \"󰝰\")" \
-                "  \e[33m-s, --separator\e[0m    Symbol for directory separation (default: \"/\")" \
-                "  \e[33m-T, --no-tilde\e[0m     Show full home path instead of '~'" \
-                "  \e[33m-m, --max-size\e[0m     Max length of path before shortening (default: 30)" \
-                "  \e[33m-p, --fish-parent\e[0m  Shorten parent directories Fish-style (e.g. ~/D/P/mist)" \
-                "  \e[33m-n, --newline\e[0m      Print each output on a new line" \
+                "$__mist_h_hdr"Options:"$__mist_h_rst" \
+                "  $__mist_h_opt"-h, --help"$__mist_h_rst"         Show this help message and exit" \
+                "  $__mist_h_opt"-H, --homesym"$__mist_h_rst"      Symbol for home folder (default: \"󰋜\")" \
+                "  $__mist_h_opt"-F, --foldersym"$__mist_h_rst"    Symbol for generic folders (default: \"󰝰\")" \
+                "  $__mist_h_opt"-s, --separator"$__mist_h_rst"    Symbol for directory separation (default: \"/\")" \
+                "  $__mist_h_opt"-T, --no-tilde"$__mist_h_rst"     Show full home path instead of '~'" \
+                "  $__mist_h_opt"-m, --max-size"$__mist_h_rst"     Max length of path before shortening (default: 30)" \
+                "  $__mist_h_opt"-p, --fish-parent"$__mist_h_rst"  Shorten parent directories Fish-style (e.g. ~/D/P/mist)" \
+                "  $__mist_h_opt"-n, --newline"$__mist_h_rst"      Print each output on a new line" \
                 "" \
-                "\e[1mFormat Specifiers:\e[0m" \
-                "  \e[32m%s\e[0m  Context symbol (Home / Generic)" \
-                "  \e[32m%t\e[0m  The home name or tilde (~)" \
-                "  \e[32m%p\e[0m  Parent path (relative to home if applicable)" \
-                "  \e[32m%d\e[0m  Current directory name" \
+                "$__mist_h_hdr"Format Specifiers:"$__mist_h_rst" \
+                "  $__mist_h_spec"%s"$__mist_h_rst"  Context symbol (Home / Generic)" \
+                "  $__mist_h_spec"%t"$__mist_h_rst"  The home name or tilde (~)" \
+                "  $__mist_h_spec"%p"$__mist_h_rst"  Parent path (relative to home if applicable)" \
+                "  $__mist_h_spec"%d"$__mist_h_rst"  Current directory name" \
                 "" \
-                "\e[1mExamples:\e[0m" \
-                "  \$ mist_pwd \"%s %t%p%d\"                   \e[0m# Standard look\e[0m" \
+                "$__mist_h_hdr"Examples:"$__mist_h_rst" \
+                "  \$ mist_pwd \"%s %t%p%d\"                   $__mist_h_rst# Standard look$__mist_h_rst" \
                 "  ~/mist/tools" \
-                "  \$ mist_pwd -p \"%t%p%d\"                   \e[0m# Fish-style parent shortening\e[0m" \
+                "  \$ mist_pwd -p \"%t%p%d\"                   $__mist_h_rst# Fish-style parent shortening$__mist_h_rst" \
                 "  ~/m/tools" \
-                "  \$ mist_pwd -s \" > \" \"%p\e[32m%d\e[0m\"               \e[0m# Arrow separated path\e[0m" \
+                "  \$ mist_pwd -s \" > \" \"%p$__mist_h_spec%d$__mist_h_rst\"               $__mist_h_rst# Arrow separated path$__mist_h_rst" \
                 "  > mist > tools"
             return
         end

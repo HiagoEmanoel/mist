@@ -2,6 +2,22 @@
 if status is-interactive
     set -e __mist_clock_cache __mist_timezone
 
+    # Help message colors derived from fish theme variables (fallback to classic ANSI)
+    set -g __mist_h_cmd (set_color -o yellow)
+    set -g __mist_h_opt (set_color yellow)
+    set -g __mist_h_spec (set_color green)
+    set -g __mist_h_hdr (set_color -o)
+    set -g __mist_h_rst (set_color normal)
+    if set -q fish_color_command
+        set -g __mist_h_cmd (set_color -o $fish_color_command)
+    end
+    if set -q fish_color_param
+        set -g __mist_h_opt (set_color $fish_color_param)
+    end
+    if set -q fish_color_quote
+        set -g __mist_h_spec (set_color $fish_color_quote)
+    end
+
     function mist_info
         set -l options h/help n/newline m/min-time= s/success= f/not-found= i/incorrect= e/error=
         argparse $options -- $argv
@@ -9,22 +25,22 @@ if status is-interactive
 
         if set -q _flag_h
             printf "%b\n" \
-                "Usage: \e[1;33mmist_info\e[0m [OPTIONS] [FORMAT]" \
+                "Usage: $__mist_h_cmd"mist_info"$__mist_h_rst [OPTIONS] [FORMAT]" \
                 "" \
-                "\e[1mOptions:\e[0m" \
-                "  \e[33m-h, --help\e[0m           Show this help message" \
-                "  \e[33m-n, --newline\e[0m        Print with newline" \
-                "  \e[33m-m, --min-time=MS\e[0m    Min execution time in ms to show %t (default: 0)" \
-                "  \e[33m-s, --success=STR\e[0m    Format for status 0 (default: \"✔\")" \
-                "  \e[33m-f, --not-found=STR\e[0m  Format for command not found 127 (default: \"?\")" \
-                "  \e[33m-i, --incorrect=STR\e[0m  Format for incorrect usage 2 (default: \"✘\")" \
-                "  \e[33m-e, --error=STR\e[0m      Format for generic error (default: \"✘ <status>\")" \
+                "$__mist_h_hdr"Options:"$__mist_h_rst" \
+                "  $__mist_h_opt"-h, --help"$__mist_h_rst"           Show this help message" \
+                "  $__mist_h_opt"-n, --newline"$__mist_h_rst"        Print with newline" \
+                "  $__mist_h_opt"-m, --min-time=MS"$__mist_h_rst"    Min execution time in ms to show %t (default: 0)" \
+                "  $__mist_h_opt"-s, --success=STR"$__mist_h_rst"    Format for status 0 (default: \"✔\")" \
+                "  $__mist_h_opt"-f, --not-found=STR"$__mist_h_rst"  Format for command not found 127 (default: \"?\")" \
+                "  $__mist_h_opt"-i, --incorrect=STR"$__mist_h_rst"  Format for incorrect usage 2 (default: \"✘\")" \
+                "  $__mist_h_opt"-e, --error=STR"$__mist_h_rst"      Format for generic error (default: \"✘ <status>\")" \
                 "" \
-                "\e[1mFormat Specifiers:\e[0m" \
-                "  \e[32m%s\e[0m  Status string or symbol" \
-                "  \e[32m%c\e[0m  Raw numeric status code" \
-                "  \e[32m%t\e[0m  Formatted command execution time" \
-                "  \e[32m%%\e[0m  Just a %"
+                "$__mist_h_hdr"Format Specifiers:"$__mist_h_rst" \
+                "  $__mist_h_spec"%s"$__mist_h_rst"  Status string or symbol" \
+                "  $__mist_h_spec"%c"$__mist_h_rst"  Raw numeric status code" \
+                "  $__mist_h_spec"%t"$__mist_h_rst"  Formatted command execution time" \
+                "  $__mist_h_spec"%%"$__mist_h_rst"  Just a %"
             return
         end
 
@@ -106,19 +122,19 @@ if status is-interactive
 
         if set -q _flag_h
             printf "%b\n" \
-                "Usage: \e[1;33mmist_date\e[0m [OPTIONS] [FORMAT]" \
+                "Usage: $__mist_h_cmd"mist_date"$__mist_h_rst [OPTIONS] [FORMAT]" \
                 "" \
-                "\e[1mOptions:\e[0m" \
-                "  \e[33m-h, --help\e[0m     Show this help message" \
-                "  \e[33m-n, --newline\e[0m  Print with newline" \
+                "$__mist_h_hdr"Options:"$__mist_h_rst" \
+                "  $__mist_h_opt"-h, --help"$__mist_h_rst"     Show this help message" \
+                "  $__mist_h_opt"-n, --newline"$__mist_h_rst"  Print with newline" \
                 "" \
-                "\e[1mFormat Specifiers:\e[0m" \
-                "  \e[32m%d\e[0m  Day (01-31)    \e[32m%H\e[0m  Hour (24h)" \
-                "  \e[32m%w\e[0m  Weekday (Sun)  \e[32m%H\e[0m  Hour (12h)" \
-                "  \e[32m%M\e[0m  Month (jan)    \e[32m%I\e[0m  AM/PM" \
-                "  \e[32m%Y\e[0m  Full Year      \e[32m%m\e[0m  Minute " \
-                "  \e[32m%Y\e[0m  Short Year     \e[32m%s\e[0m  Second" \
-                "  \e[32m%%\e[0m  Just a %"
+                "$__mist_h_hdr"Format Specifiers:"$__mist_h_rst" \
+                "  $__mist_h_spec"%d"$__mist_h_rst"  Day (01-31)    $__mist_h_spec"%H"$__mist_h_rst"  Hour (24h)" \
+                "  $__mist_h_spec"%w"$__mist_h_rst"  Weekday (Sun)  $__mist_h_spec"%H"$__mist_h_rst"  Hour (12h)" \
+                "  $__mist_h_spec"%M"$__mist_h_rst"  Month (jan)    $__mist_h_spec"%I"$__mist_h_rst"  AM/PM" \
+                "  $__mist_h_spec"%Y"$__mist_h_rst"  Full Year      $__mist_h_spec"%m"$__mist_h_rst"  Minute " \
+                "  $__mist_h_spec"%Y"$__mist_h_rst"  Short Year     $__mist_h_spec"%s"$__mist_h_rst"  Second" \
+                "  $__mist_h_spec"%%"$__mist_h_rst"  Just a %"
             return
         end
 
@@ -191,23 +207,23 @@ if status is-interactive
 
         if set -q _flag_h
             printf "%b\n" \
-                "Usage: \e[1;33mmist_line\e[0m [OPTIONS] [CHAR]" \
+                "Usage: $__mist_h_cmd"mist_line"$__mist_h_rst [OPTIONS] [CHAR]" \
                 "" \
                 "Prints a decorative line using the given character" \
                 "and returns to the start of the line, allowing overwriting" \
                 "OBS: Line wrap may cause visual glitches" \
                 "" \
-                "\e[1mOptions:\e[0m" \
-                "  \e[33m-h\e[0m, \e[33m--help\e[0m     Show this help message and exit" \
-                "  \e[33m-p\e[0m, \e[33m--pad\e[0m      Space between characters (default: 0)" \
-                "  \e[33m-s\e[0m, \e[33m--size\e[0m     Screen relative size in % (1-100, default: 100)" \
-                "  \e[33m-a\e[0m, \e[33m--align\e[0m    Alignment: \e[36ml/left\e[0m, \e[36mc/center\e[0m, \e[36mr/right\e[0m" \
-                "  \e[33m-n\e[0m, \e[33m--newline\e[0m  Print newline instead of returning to first column" \
+                "$__mist_h_hdr"Options:"$__mist_h_rst" \
+                "  $__mist_h_opt"-h"$__mist_h_rst", $__mist_h_opt"--help"$__mist_h_rst"     Show this help message and exit" \
+                "  $__mist_h_opt"-p"$__mist_h_rst", $__mist_h_opt"--pad"$__mist_h_rst"      Space between characters (default: 0)" \
+                "  $__mist_h_opt"-s"$__mist_h_rst", $__mist_h_opt"--size"$__mist_h_rst"     Screen relative size in % (1-100, default: 100)" \
+                "  $__mist_h_opt"-a"$__mist_h_rst", $__mist_h_opt"--align"$__mist_h_rst"    Alignment: \e[36ml/left\e[0m, \e[36mc/center\e[0m, \e[36mr/right\e[0m" \
+                "  $__mist_h_opt"-n"$__mist_h_rst", $__mist_h_opt"--newline"$__mist_h_rst"  Print newline instead of returning to first column" \
                 "" \
-                "\e[1mExample:\e[0m" \
-                "  \e[32m\$\e[0m mist_line -p 1 -a right -s 50 -" \
-                "  \e[32m\$\e[0m other things..." \
-                "\e[1mOutput:\e[0m"
+                "$__mist_h_hdr"Example:"$__mist_h_rst" \
+                "  $__mist_h_spec"\$"$__mist_h_rst" mist_line -p 1 -a right -s 50 -" \
+                "  $__mist_h_spec"\$"$__mist_h_rst" other things..." \
+                "$__mist_h_hdr"Output:"$__mist_h_rst"
             set_color cyan
             mist_line -p 1 -a right -s 50 -
             set_color brmagenta
