@@ -2,21 +2,102 @@
 if status is-interactive
     set -e __mist_clock_cache __mist_timezone
 
-    # Help message colors derived from fish theme variables (fallback to classic ANSI)
-    set -g __mist_h_cmd (set_color -o yellow)
-    set -g __mist_h_opt (set_color yellow)
-    set -g __mist_h_spec (set_color green)
-    set -g __mist_h_hdr (set_color -o)
-    set -g __mist_h_rst (set_color normal)
-    if set -q fish_color_command
-        set -g __mist_h_cmd (set_color -o $fish_color_command)
+    function __mist_resolve_color
+        set -l args (string replace -ra -- '-f|--foreground' '' $argv | string collect | string replace -ra -- '-b\s*|--background=' 'bg-')
+        for arg in $args
+            switch $arg
+                case -r --reset normal
+                    set -a seq 0
+                case -o --bold
+                    set -a seq 1
+                case --dim
+                    set -a seq 2
+                case -i --italics
+                    set -a seq 3
+                case -u --underline
+                    set -a seq 4
+                case --reverse
+                    set -a seq 7
+                case black
+                    set -a seq 30
+                case red
+                    set -a seq 31
+                case green
+                    set -a seq 32
+                case yellow
+                    set -a seq 33
+                case blue
+                    set -a seq 34
+                case magenta
+                    set -a seq 35
+                case cyan
+                    set -a seq 36
+                case white
+                    set -a seq 37
+                case brblack
+                    set -a seq 90
+                case brred
+                    set -a seq 91
+                case brgreen
+                    set -a seq 92
+                case bryellow
+                    set -a seq 93
+                case brblue
+                    set -a seq 94
+                case brmagenta
+                    set -a seq 95
+                case brcyan
+                    set -a seq 96
+                case brwhite
+                    set -a seq 97
+                case bg-black
+                    set -a seq 40
+                case bg-red
+                    set -a seq 41
+                case bg-green
+                    set -a seq 42
+                case bg-yellow
+                    set -a seq 43
+                case bg-blue
+                    set -a seq 44
+                case bg-magenta
+                    set -a seq 45
+                case bg-cyan
+                    set -a seq 46
+                case bg-white
+                    set -a seq 47
+                case bg-brblack
+                    set -a seq 100
+                case bg-brred
+                    set -a seq 101
+                case bg-brgreen
+                    set -a seq 102
+                case bg-bryellow
+                    set -a seq 103
+                case bg-brblue
+                    set -a seq 104
+                case bg-brmagenta
+                    set -a seq 105
+                case bg-brcyan
+                    set -a seq 106
+                case bg-brwhite
+                    set -a seq 107
+            end
+        end
+        printf "\\\\e["(string join ';' $seq)"m"
     end
-    if set -q fish_color_param
-        set -g __mist_h_opt (set_color $fish_color_param)
-    end
-    if set -q fish_color_quote
-        set -g __mist_h_spec (set_color $fish_color_quote)
-    end
+
+    set -g __mist_h_cmd (__mist_resolve_color -o yellow)
+    set -g __mist_h_opt (__mist_resolve_color yellow)
+    set -g __mist_h_spec (__mist_resolve_color green)
+    set -g __mist_h_hdr (__mist_resolve_color -o)
+    set -g __mist_h_rst (__mist_resolve_color normal)
+    set -q fish_color_command
+    and set -g __mist_h_cmd (__mist_resolve_color -o $fish_color_command)
+    set -q fish_color_param
+    and set -g __mist_h_opt (__mist_resolve_color $fish_color_param)
+    set -q fish_color_quote
+    and set -g __mist_h_spec (__mist_resolve_color $fish_color_quote)
 
     function mist_info
         set -l options h/help n/newline m/min-time= s/success= f/not-found= i/incorrect= e/error=
@@ -25,22 +106,22 @@ if status is-interactive
 
         if set -q _flag_h
             printf "%b\n" \
-                "Usage: $__mist_h_cmd"mist_info"$__mist_h_rst [OPTIONS] [FORMAT]" \
+                "Usage: "$__mist_h_cmd"mist_info"$__mist_h_rst" [OPTIONS] [FORMAT]" \
                 "" \
                 "$__mist_h_hdr"Options:"$__mist_h_rst" \
-                "  $__mist_h_opt"-h, --help"$__mist_h_rst"           Show this help message" \
-                "  $__mist_h_opt"-n, --newline"$__mist_h_rst"        Print with newline" \
-                "  $__mist_h_opt"-m, --min-time=MS"$__mist_h_rst"    Min execution time in ms to show %t (default: 0)" \
-                "  $__mist_h_opt"-s, --success=STR"$__mist_h_rst"    Format for status 0 (default: \"✔\")" \
-                "  $__mist_h_opt"-f, --not-found=STR"$__mist_h_rst"  Format for command not found 127 (default: \"?\")" \
-                "  $__mist_h_opt"-i, --incorrect=STR"$__mist_h_rst"  Format for incorrect usage 2 (default: \"✘\")" \
-                "  $__mist_h_opt"-e, --error=STR"$__mist_h_rst"      Format for generic error (default: \"✘ <status>\")" \
+                "  "$__mist_h_opt"-h, --help"$__mist_h_rst"           Show this help message" \
+                "  "$__mist_h_opt"-n, --newline"$__mist_h_rst"        Print with newline" \
+                "  "$__mist_h_opt"-m, --min-time=MS"$__mist_h_rst"    Min execution time in ms to show %t (default: 0)" \
+                "  "$__mist_h_opt"-s, --success=STR"$__mist_h_rst"    Format for status 0 (default: \"✔\")" \
+                "  "$__mist_h_opt"-f, --not-found=STR"$__mist_h_rst"  Format for command not found 127 (default: \"?\")" \
+                "  "$__mist_h_opt"-i, --incorrect=STR"$__mist_h_rst"  Format for incorrect usage 2 (default: \"✘\")" \
+                "  "$__mist_h_opt"-e, --error=STR"$__mist_h_rst"      Format for generic error (default: \"✘ <status>\")" \
                 "" \
                 "$__mist_h_hdr"Format Specifiers:"$__mist_h_rst" \
-                "  $__mist_h_spec"%s"$__mist_h_rst"  Status string or symbol" \
-                "  $__mist_h_spec"%c"$__mist_h_rst"  Raw numeric status code" \
-                "  $__mist_h_spec"%t"$__mist_h_rst"  Formatted command execution time" \
-                "  $__mist_h_spec"%%"$__mist_h_rst"  Just a %"
+                "  "$__mist_h_spec"%s"$__mist_h_rst"  Status string or symbol" \
+                "  "$__mist_h_spec"%c"$__mist_h_rst"  Raw numeric status code" \
+                "  "$__mist_h_spec"%t"$__mist_h_rst"  Formatted command execution time" \
+                "  "$__mist_h_spec"%%"$__mist_h_rst"  Just a %"
             return
         end
 
@@ -101,13 +182,11 @@ if status is-interactive
             set output "%s %t"
         end
 
-        # Substituição das especificações de formato de maneira segura
         set output (string replace -ra -- '(?<!%)%s' "$status_str" "$output")
         set output (string replace -ra -- '(?<!%)%c' "$last_status" "$output")
         set output (string replace -ra -- '(?<!%)%t' "$time_str" "$output")
         set output (string replace -ra -- '%%' '%' "$output")
 
-        # Impressão usando %b para renderizar sequências ANSI (ex: cores) sem corromper com %s simples
         if set -q _flag_n
             printf "%b\n" "$output"
         else
@@ -122,19 +201,19 @@ if status is-interactive
 
         if set -q _flag_h
             printf "%b\n" \
-                "Usage: $__mist_h_cmd"mist_date"$__mist_h_rst [OPTIONS] [FORMAT]" \
+                "Usage: "$__mist_h_cmd"mist_date"$__mist_h_rst" [OPTIONS] [FORMAT]" \
                 "" \
                 "$__mist_h_hdr"Options:"$__mist_h_rst" \
-                "  $__mist_h_opt"-h, --help"$__mist_h_rst"     Show this help message" \
-                "  $__mist_h_opt"-n, --newline"$__mist_h_rst"  Print with newline" \
+                "  "$__mist_h_opt"-h, --help"$__mist_h_rst"     Show this help message" \
+                "  "$__mist_h_opt"-n, --newline"$__mist_h_rst"  Print with newline" \
                 "" \
                 "$__mist_h_hdr"Format Specifiers:"$__mist_h_rst" \
-                "  $__mist_h_spec"%d"$__mist_h_rst"  Day (01-31)    $__mist_h_spec"%H"$__mist_h_rst"  Hour (24h)" \
-                "  $__mist_h_spec"%w"$__mist_h_rst"  Weekday (Sun)  $__mist_h_spec"%H"$__mist_h_rst"  Hour (12h)" \
-                "  $__mist_h_spec"%M"$__mist_h_rst"  Month (jan)    $__mist_h_spec"%I"$__mist_h_rst"  AM/PM" \
-                "  $__mist_h_spec"%Y"$__mist_h_rst"  Full Year      $__mist_h_spec"%m"$__mist_h_rst"  Minute " \
-                "  $__mist_h_spec"%Y"$__mist_h_rst"  Short Year     $__mist_h_spec"%s"$__mist_h_rst"  Second" \
-                "  $__mist_h_spec"%%"$__mist_h_rst"  Just a %"
+                "  "$__mist_h_spec"%d"$__mist_h_rst"  Day (01-31)    "$__mist_h_spec"%H"$__mist_h_rst"  Hour (24h)" \
+                "  "$__mist_h_spec"%w"$__mist_h_rst"  Weekday (Sun)  "$__mist_h_spec"%H"$__mist_h_rst"  Hour (12h)" \
+                "  "$__mist_h_spec"%M"$__mist_h_rst"  Month (jan)    "$__mist_h_spec"%I"$__mist_h_rst"  AM/PM" \
+                "  "$__mist_h_spec"%Y"$__mist_h_rst"  Full Year      "$__mist_h_spec"%m"$__mist_h_rst"  Minute " \
+                "  "$__mist_h_spec"%Y"$__mist_h_rst"  Short Year     "$__mist_h_spec"%s"$__mist_h_rst"  Second" \
+                "  "$__mist_h_spec"%%"$__mist_h_rst"  Just a %"
             return
         end
 
@@ -207,23 +286,23 @@ if status is-interactive
 
         if set -q _flag_h
             printf "%b\n" \
-                "Usage: $__mist_h_cmd"mist_line"$__mist_h_rst [OPTIONS] [CHAR]" \
+                "Usage:" "$__mist_h_cmd"mist_line"$__mist_h_rst" [OPTIONS] [CHAR]" \
                 "" \
                 "Prints a decorative line using the given character" \
                 "and returns to the start of the line, allowing overwriting" \
                 "OBS: Line wrap may cause visual glitches" \
                 "" \
                 "$__mist_h_hdr"Options:"$__mist_h_rst" \
-                "  $__mist_h_opt"-h"$__mist_h_rst", $__mist_h_opt"--help"$__mist_h_rst"     Show this help message and exit" \
-                "  $__mist_h_opt"-p"$__mist_h_rst", $__mist_h_opt"--pad"$__mist_h_rst"      Space between characters (default: 0)" \
-                "  $__mist_h_opt"-s"$__mist_h_rst", $__mist_h_opt"--size"$__mist_h_rst"     Screen relative size in % (1-100, default: 100)" \
-                "  $__mist_h_opt"-a"$__mist_h_rst", $__mist_h_opt"--align"$__mist_h_rst"    Alignment: \e[36ml/left\e[0m, \e[36mc/center\e[0m, \e[36mr/right\e[0m" \
-                "  $__mist_h_opt"-n"$__mist_h_rst", $__mist_h_opt"--newline"$__mist_h_rst"  Print newline instead of returning to first column" \
+                " "$__mist_h_opt"-h"$__mist_h_rst", "$__mist_h_opt"--help"$__mist_h_rst" "Show this help message and exit" \
+                " "$__mist_h_opt"-p"$__mist_h_rst", "$__mist_h_opt"--pad"$__mist_h_rst" Space between characters (default: 0)" \
+                " "$__mist_h_opt"-s"$__mist_h_rst", "$__mist_h_opt"--size"$__mist_h_rst" Screen relative size in % (1-100, default: 100)" \
+                " "$__mist_h_opt"-a"$__mist_h_rst", "$__mist_h_opt"--align"$__mist_h_rst" Alignment: "$__mist_h_spec"l/left"$__mist_h_rst", "$__mist_h_spec"c/center"$__mist_h_rst", "$__mist_h_spec"r/right"$__mist_h_rst" \
+                " "$__mist_h_opt"-n"$__mist_h_rst", "$__mist_h_opt"--newline"$__mist_h_rst" Print newline instead of returning to first column" \
                 "" \
                 "$__mist_h_hdr"Example:"$__mist_h_rst" \
-                "  $__mist_h_spec"\$"$__mist_h_rst" mist_line -p 1 -a right -s 50 -" \
-                "  $__mist_h_spec"\$"$__mist_h_rst" other things..." \
-                "$__mist_h_hdr"Output:"$__mist_h_rst"
+                " "$__mist_h_spec"\$"$__mist_h_rst" "mist_line -p 1 -a right -s 50 -" \
+                "  "$__mist_h_spec"\$"$__mist_h_rst" "other things..." \
+                "$__mist_h_hdr""Output:"$__mist_h_rst"
             set_color cyan
             mist_line -p 1 -a right -s 50 -
             set_color brmagenta
