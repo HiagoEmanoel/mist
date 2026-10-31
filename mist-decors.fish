@@ -209,10 +209,10 @@ if status is-interactive
                 "" \
                 "$__mist_h_hdr"Format Specifiers:"$__mist_h_rst" \
                 "  "$__mist_h_spec"%d"$__mist_h_rst"  Day (01-31)    "$__mist_h_spec"%H"$__mist_h_rst"  Hour (24h)" \
-                "  "$__mist_h_spec"%w"$__mist_h_rst"  Weekday (Sun)  "$__mist_h_spec"%H"$__mist_h_rst"  Hour (12h)" \
-                "  "$__mist_h_spec"%M"$__mist_h_rst"  Month (jan)    "$__mist_h_spec"%I"$__mist_h_rst"  AM/PM" \
-                "  "$__mist_h_spec"%Y"$__mist_h_rst"  Full Year      "$__mist_h_spec"%m"$__mist_h_rst"  Minute " \
-                "  "$__mist_h_spec"%Y"$__mist_h_rst"  Short Year     "$__mist_h_spec"%s"$__mist_h_rst"  Second" \
+                "  "$__mist_h_spec"%w"$__mist_h_rst"  Weekday (Sun)  "$__mist_h_spec"%h"$__mist_h_rst"  Hour (12h)" \
+                "  "$__mist_h_spec"%M"$__mist_h_rst"  Month (Jan)    "$__mist_h_spec"%I"$__mist_h_rst"  AM/PM" \
+                "  "$__mist_h_spec"%Y"$__mist_h_rst"  Full Year      "$__mist_h_spec"%m"$__mist_h_rst"  Minute" \
+                "  "$__mist_h_spec"%y"$__mist_h_rst"  Short Year     "$__mist_h_spec"%s"$__mist_h_rst"  Second" \
                 "  "$__mist_h_spec"%%"$__mist_h_rst"  Just a %"
             return
         end
@@ -256,7 +256,9 @@ if status is-interactive
                     set val (printf "%02d" $hour)
                 case h
                     set -l hour (math -s 0 $local_ts / 3600 % 24 % 12)
-                    set val (printf "%02d" (math "$hour % 12"))
+                    test $hour -eq 0
+                    and set hour 12
+                    set val (printf "%02d" $hour)
                 case I
                     set -l hour (math -s 0 $local_ts / 3600 % 24)
                     test $hour -ge 12
@@ -280,29 +282,34 @@ if status is-interactive
     end
 
     function mist_line
-        set -l options h/help p/pad= s/size= a/aling= n/newline
+        set -l options h/help p/pad= s/size= a/align= n/newline
         argparse $options -- $argv
         or return
 
         if set -q _flag_h
+            set -l c $__mist_h_cmd
+            set -l o $__mist_h_opt
+            set -l s $__mist_h_spec
+            set -l hd $__mist_h_hdr
+            set -l r $__mist_h_rst
             printf "%b\n" \
-                "Usage:" "$__mist_h_cmd"mist_line"$__mist_h_rst" [OPTIONS] [CHAR]" \
+                "Usage: $c""mist_line$r [OPTIONS] [CHAR]" \
                 "" \
                 "Prints a decorative line using the given character" \
                 "and returns to the start of the line, allowing overwriting" \
-                "OBS: Line wrap may cause visual glitches" \
+                "Note: Line wrap may cause visual glitches" \
                 "" \
-                "$__mist_h_hdr"Options:"$__mist_h_rst" \
-                " "$__mist_h_opt"-h"$__mist_h_rst", "$__mist_h_opt"--help"$__mist_h_rst" "Show this help message and exit" \
-                " "$__mist_h_opt"-p"$__mist_h_rst", "$__mist_h_opt"--pad"$__mist_h_rst" Space between characters (default: 0)" \
-                " "$__mist_h_opt"-s"$__mist_h_rst", "$__mist_h_opt"--size"$__mist_h_rst" Screen relative size in % (1-100, default: 100)" \
-                " "$__mist_h_opt"-a"$__mist_h_rst", "$__mist_h_opt"--align"$__mist_h_rst" Alignment: "$__mist_h_spec"l/left"$__mist_h_rst", "$__mist_h_spec"c/center"$__mist_h_rst", "$__mist_h_spec"r/right"$__mist_h_rst" \
-                " "$__mist_h_opt"-n"$__mist_h_rst", "$__mist_h_opt"--newline"$__mist_h_rst" Print newline instead of returning to first column" \
+                "$hd""Options:$r" \
+                "  $o""-h, --help$r     Show this help message and exit" \
+                "  $o""-p, --pad$r      Space between characters (default: 0)" \
+                "  $o""-s, --size$r     Screen relative size in % (1-100, default: 100)" \
+                "  $o""-a, --align$r    Alignment: $s""l/left$r, $s""c/center$r, $s""r/right$r" \
+                "  $o""-n, --newline$r  Print newline instead of returning to first column" \
                 "" \
-                "$__mist_h_hdr"Example:"$__mist_h_rst" \
-                " "$__mist_h_spec"\$"$__mist_h_rst" "mist_line -p 1 -a right -s 50 -" \
-                "  "$__mist_h_spec"\$"$__mist_h_rst" "other things..." \
-                "$__mist_h_hdr""Output:"$__mist_h_rst"
+                "$hd""Example:$r" \
+                "  $s""\$$r mist_line -p 1 -a right -s 50 -" \
+                "  $s""\$$r other things..." \
+                "$hd""Output:$r"
             set_color cyan
             mist_line -p 1 -a right -s 50 -
             set_color brmagenta
@@ -338,14 +345,14 @@ if status is-interactive
         set -f padstr (string repeat -n $pad -- ' ')
         set -f finaline (string join "$padstr" -- $linebuff)
 
-        set -f aling
+        set -f align
         set -q _flag_a
-        and set aling $_flag_a
-        or set aling left
+        and set align $_flag_a
+        or set align left
 
         printf "\e[s"
 
-        switch (string sub -l 1 -- $aling)
+        switch (string sub -l 1 -- $align)
             case c
                 set -l linesize (string length -- "$finaline")
                 set -l start (math -s0 -- \($COLUMNS - $linesize\) / 2)
@@ -357,7 +364,7 @@ if status is-interactive
             case l
                 printf "\e[0G"
             case '*'
-                echo Unknow aling: "$aling"
+                echo Unknown align: "$align"
                 return
         end
 
