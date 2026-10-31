@@ -82,22 +82,28 @@ if status is-interactive
                     set -a seq 106
                 case bg-brwhite
                     set -a seq 107
+                case '*'
+                    set -l parts (string match -ra -- '[A-Fa-f0-9]{2}' $arg)
+                    if test (count $parts) = 3
+                        set -l red (math 0x$parts[1])
+                        set -l green (math 0x$parts[2])
+                        set -l blur (math 0x$parts[3])
+                        set -a seq '38;2' $red $green $blue
+                    end
             end
         end
-        printf "\\\\e["(string join ';' $seq)"m"
+        echo -n "\\e["(string join ';' $seq)"m"
     end
 
-    set -g __mist_h_cmd (__mist_resolve_color -o yellow)
-    set -g __mist_h_opt (__mist_resolve_color yellow)
-    set -g __mist_h_spec (__mist_resolve_color green)
-    set -g __mist_h_hdr (__mist_resolve_color -o)
-    set -g __mist_h_rst (__mist_resolve_color normal)
-    set -q fish_color_command
-    and set -g __mist_h_cmd (__mist_resolve_color -o $fish_color_command)
-    set -q fish_color_param
-    and set -g __mist_h_opt (__mist_resolve_color $fish_color_param)
-    set -q fish_color_quote
-    and set -g __mist_h_spec (__mist_resolve_color $fish_color_quote)
+    function __mist_setup_colors
+        set -g __mist_h_cmd (__mist_resolve_color $fish_color_command)
+        set -g __mist_h_opt (__mist_resolve_color $fish_color_cwd)
+        set -g __mist_h_spec (__mist_resolve_color $fish_color_cwd_root)
+        set -g __mist_h_hdr (__mist_resolve_color $fish_color_history_current)
+        set -g __mist_h_rst (__mist_resolve_color $fish_color_normal)
+    end
+
+    __mist_setup_colors
 
     function mist_info
         set -l options h/help n/newline m/min-time= s/success= f/not-found= i/incorrect= e/error=
