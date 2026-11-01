@@ -150,7 +150,7 @@ if status is-interactive
             return
         end
 
-        if set -q _flag_help
+        if set -q _flag_h
             printf "%b\n" \
                 "Usage: $__mist_h_cmd"mist_git"$__mist_h_rst [OPTIONS] [FORMAT]..." \
                 "" \

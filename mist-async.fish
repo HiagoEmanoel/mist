@@ -76,17 +76,17 @@ if status is-interactive
         end
 
         set -l ignore_dirs $HOME $TERMUX__ROOTFS_DIR (string split ':' $GIT_CEILING_DIRECTORIES)
-        set -l splited_pwd $PWD
-        while test $splited_pwd[-1] != /
-            set -a splited_pwd (path normalize $splited_pwd[-1]/..)
-            contains $splited_pwd[-1] $ignore_dirs
+        set -l split_pwd $PWD
+        while test $split_pwd[-1] != /
+            set -a split_pwd (path normalize $split_pwd[-1]/..)
+            contains $split_pwd[-1] $ignore_dirs
             and break
         end
 
-        set -l gitdir_location (path filter -d $splited_pwd/.git)[1]
+        set -l gitdir_location (path filter -d $split_pwd/.git)[1]
 
         if test -z "$gitdir_location"
-            set -f gitdir_candidate (path filter -f $splited_pwd/config)[1]
+            set -f gitdir_candidate (path filter -f $split_pwd/config)[1]
             test -z "$gitdir_candidate"
             and return
 
@@ -172,8 +172,8 @@ if status is-interactive
             end
         end
 
-        set -l ahead (string match -rg '\[(?:ahead (\d).*)\]' "$git_data[1]")
-        set -l behind (string match -rg '\[.*(?:behind (\d))\]' "$git_data[1]")
+        set -l ahead (string match -rg '\[(?:ahead (\d+).*)\]' "$git_data[1]")
+        set -l behind (string match -rg '\[.*(?:behind (\d+))\]' "$git_data[1]")
         test -z "$ahead"
         and set ahead 0
 
@@ -187,7 +187,7 @@ if status is-interactive
         test -z "$__mist_git_wt"
         and return
 
-        set -l escaped_wt (string escape --style=regex "$target_wt")
+        set -l escaped_wt (string escape --style=regex "$__mist_git_wt")
         if string match -rq "\d+:$escaped_wt" $__mist_git_lock
             set -l wt_mtime (string match -rg "(\d+):$escaped_wt" $__mist_git_lock)
             if test "$wt_mtime" -lt (math (path mtime -R /proc) - $__mist_git_timeout)
@@ -254,7 +254,7 @@ if status is-interactive
     function __mist_git_trigger_postexec --on-event fish_postexec
         set -l args (string split ' ' "$argv" | string match -r '\w+')
 
-        if test "$__mist_last_pwd" != "$PWD" -o (path mtime $__mist_last_pwd) != __mist_last_pwd_mtime
+        if test "$__mist_last_pwd" != "$PWD" -o (path mtime $__mist_last_pwd) != "$__mist_last_pwd_mtime"
             set -g __mist_last_pwd_mtime (path mtime $__mist_last_pwd)
 
             set -g __mist_last_pwd "$PWD"
@@ -331,7 +331,7 @@ if status is-interactive
                 end
             end
 
-            set __mist_git_lock $new_lock
+            set -U __mist_git_lock $new_lock
         end
     end
 
