@@ -9,18 +9,18 @@ if status is-interactive
 
         if set -q _flag_h
             printf "%b\n" \
-                "Usage:" $__mist_h_cmd"mist_login"$__mist_h_rst [OPTIONS] [FORMAT]" \
+                "Usage: $__mist_h_cmd""mist_login""$__mist_h_rst [OPTIONS] [FORMAT]" \
                 "" \
-                "$__mist_h_hdr"Options:"$__mist_h_rst" \
-                " $__mist_h_opt"-h, --help"$__mist_h_rst"     Show this help message" \
-                "  $__mist_h_opt"-n, --newline"$__mist_h_rst" Print with newline" \
+                "$__mist_h_hdr""Options:$__mist_h_rst" \
+                "  $__mist_h_opt""-h, --help$__mist_h_rst     Show this help message" \
+                "  $__mist_h_opt""-n, --newline$__mist_h_rst Print with newline" \
                 "" \
-                "$__mist_h_hdr"Format Specifiers:"$__mist_h_rst" \
-                " $__mist_h_spec"%u"$__mist_h_rst"  User name" \
-                "  $__mist_h_spec"%h"$__mist_h_rst" Hostname" \
-                " $__mist_h_spec"%s"$__mist_h_rst"  The distro symbol" \
-                "  $__mist_h_spec"%e"$__mist_h_rst" Extra runtime (docker/udocker/proot/...)" \
-                " $__mist_h_spec"%%"$__mist_h_rst"  Just a %"
+                "$__mist_h_hdr""Format Specifiers:$__mist_h_rst" \
+                "  $__mist_h_spec""%u$__mist_h_rst  User name" \
+                "  $__mist_h_spec""%h$__mist_h_rst  Hostname" \
+                "  $__mist_h_spec""%s$__mist_h_rst  The distro symbol" \
+                "  $__mist_h_spec""%e$__mist_h_rst  Extra runtime (docker/udocker/proot/...)" \
+                "  $__mist_h_spec""%%$__mist_h_rst  Just a %"
             return
         end
 
@@ -319,7 +319,7 @@ if status is-interactive
 
         if set -q _flag_h
             printf "%b\n" \
-                "$__mist_h_hdr"Usage:"$__mist_h_rst" $__mist_h_cmd"mist_pwd"$__mist_h_rst [OPTIONS] [FORMAT] ..." \
+                "$__mist_h_hdr""Usage:$__mist_h_rst $__mist_h_cmd""mist_pwd""$__mist_h_rst [OPTIONS] [FORMAT] ..." \
                 "" \
                 "$__mist_h_hdr"Options:"$__mist_h_rst" \
                 " $__mist_h_opt"-h, --help"$__mist_h_rst"         Show this help message and exit" \
