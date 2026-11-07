@@ -1,0 +1,390 @@
+# @fish-lsp-disable 4004
+if status is-interactive
+    set -e __mist_clock_cache __mist_timezone
+
+    function __mist_resolve_color
+        set -l args (string replace -ra -- '-f|--foreground' '' $argv | string collect | string replace -ra -- '-b\s*|--background=' 'bg-')
+        for arg in $args
+            switch $arg
+                case -r --reset normal
+                    set -a seq 0
+                case -o --bold
+                    set -a seq 1
+                case --dim
+                    set -a seq 2
+                case -i --italics
+                    set -a seq 3
+                case -u --underline
+                    set -a seq 4
+                case --reverse
+                    set -a seq 7
+                case black
+                    set -a seq 30
+                case red
+                    set -a seq 31
+                case green
+                    set -a seq 32
+                case yellow
+                    set -a seq 33
+                case blue
+                    set -a seq 34
+                case magenta
+                    set -a seq 35
+                case cyan
+                    set -a seq 36
+                case white
+                    set -a seq 37
+                case brblack
+                    set -a seq 90
+                case brred
+                    set -a seq 91
+                case brgreen
+                    set -a seq 92
+                case bryellow
+                    set -a seq 93
+                case brblue
+                    set -a seq 94
+                case brmagenta
+                    set -a seq 95
+                case brcyan
+                    set -a seq 96
+                case brwhite
+                    set -a seq 97
+                case bg-black
+                    set -a seq 40
+                case bg-red
+                    set -a seq 41
+                case bg-green
+                    set -a seq 42
+                case bg-yellow
+                    set -a seq 43
+                case bg-blue
+                    set -a seq 44
+                case bg-magenta
+                    set -a seq 45
+                case bg-cyan
+                    set -a seq 46
+                case bg-white
+                    set -a seq 47
+                case bg-brblack
+                    set -a seq 100
+                case bg-brred
+                    set -a seq 101
+                case bg-brgreen
+                    set -a seq 102
+                case bg-bryellow
+                    set -a seq 103
+                case bg-brblue
+                    set -a seq 104
+                case bg-brmagenta
+                    set -a seq 105
+                case bg-brcyan
+                    set -a seq 106
+                case bg-brwhite
+                    set -a seq 107
+                case '*'
+                    set -l parts (string match -ra -- '[A-Fa-f0-9]{2}' $arg)
+                    if test (count $parts) = 3
+                        set -l red (math 0x$parts[1])
+                        set -l green (math 0x$parts[2])
+                        set -l blur (math 0x$parts[3])
+                        set -a seq '38;2' $red $green $blue
+                    end
+            end
+        end
+        echo -n "\\e["(string join ';' $seq)"m"
+    end
+
+    function __mist_setup_colors
+        set -g __mist_h_cmd (__mist_resolve_color $fish_color_command)
+        set -g __mist_h_opt (__mist_resolve_color $fish_color_cwd)
+        set -g __mist_h_spec (__mist_resolve_color $fish_color_cwd_root)
+        set -g __mist_h_hdr (__mist_resolve_color $fish_color_history_current)
+        set -g __mist_h_rst (__mist_resolve_color $fish_color_normal)
+    end
+
+    __mist_setup_colors
+
+    function mist_info
+        set -l options h/help n/newline m/min-time= s/success= f/not-found= i/incorrect= e/error=
+        argparse $options -- $argv
+        or return
+
+        if set -q _flag_h
+            printf "%b\n" \
+                "Usage: "$__mist_h_cmd"mist_info"$__mist_h_rst" [OPTIONS] [FORMAT]" \
+                "" \
+                "$__mist_h_hdr"Options:"$__mist_h_rst" \
+                "  "$__mist_h_opt"-h, --help"$__mist_h_rst"           Show this help message" \
+                "  "$__mist_h_opt"-n, --newline"$__mist_h_rst"        Print with newline" \
+                "  "$__mist_h_opt"-m, --min-time=MS"$__mist_h_rst"    Min execution time in ms to show %t (default: 0)" \
+                "  "$__mist_h_opt"-s, --success=STR"$__mist_h_rst"    Format for status 0 (default: \"✔\")" \
+                "  "$__mist_h_opt"-f, --not-found=STR"$__mist_h_rst"  Format for command not found 127 (default: \"?\")" \
+                "  "$__mist_h_opt"-i, --incorrect=STR"$__mist_h_rst"  Format for incorrect usage 2 (default: \"✘\")" \
+                "  "$__mist_h_opt"-e, --error=STR"$__mist_h_rst"      Format for generic error (default: \"✘ <status>\")" \
+                "" \
+                "$__mist_h_hdr"Format Specifiers:"$__mist_h_rst" \
+                "  "$__mist_h_spec"%s"$__mist_h_rst"  Status string or symbol" \
+                "  "$__mist_h_spec"%c"$__mist_h_rst"  Raw numeric status code" \
+                "  "$__mist_h_spec"%t"$__mist_h_rst"  Formatted command execution time" \
+                "  "$__mist_h_spec"%%"$__mist_h_rst"  Just a %"
+            return
+        end
+
+        set -l last_status "$__mist_info_data[1]"
+        set -l cmd_duration "$__mist_info_data[2]"
+
+        test -z "$last_status"
+        and set last_status 0
+
+        test -z "$cmd_duration"
+        and set cmd_duration 0
+
+        # Map exit status to display string
+        set -l status_str
+        switch $last_status
+            case 0
+                set -q _flag_s
+                and set status_str $_flag_s
+                or set status_str "✔"
+            case 127
+                set -q _flag_f
+                and set status_str $_flag_f
+                or set status_str "?"
+            case 2
+                set -q _flag_i
+                and set status_str $_flag_i
+                or set status_str "✘"
+            case '*'
+                set -q _flag_e
+                and set status_str $_flag_e
+                or set status_str "✘ $last_status"
+        end
+
+        # Format duration with ms/s/m units (no external tools)
+        set -l min_time 0
+        set -q _flag_m
+        and set min_time $_flag_m
+
+        set -l time_str ""
+        if test $cmd_duration -ge $min_time -a $cmd_duration -gt 0
+            if test $cmd_duration -lt 1000
+                set time_str {$cmd_duration}ms
+            else if test $cmd_duration -lt 60000
+                set -l sec (math -s1 "$cmd_duration / 1000")
+                set time_str {$sec}s
+            else
+                set -l min (math -s0 "$cmd_duration / 60000")
+                set -l rem_ms (math "$cmd_duration % 60000")
+                set -l sec (math -s0 "$rem_ms / 1000")
+                set time_str {$min}m{$sec}s
+            end
+        end
+
+        set -l output
+        if test -n "$argv"
+            set output "$argv"
+        else
+            set output "%s %t"
+        end
+
+        set output (string replace -ra -- '(?<!%)%s' "$status_str" "$output")
+        set output (string replace -ra -- '(?<!%)%c' "$last_status" "$output")
+        set output (string replace -ra -- '(?<!%)%t' "$time_str" "$output")
+        set output (string replace -ra -- '%%' '%' "$output")
+
+        if set -q _flag_n
+            printf "%b\n" "$output"
+        else
+            printf "%b" "$output"
+        end
+    end
+
+    function mist_date
+        set -l options h/help n/newline
+        argparse $options -- $argv
+        or return
+
+        if set -q _flag_h
+            printf "%b\n" \
+                "Usage: "$__mist_h_cmd"mist_date"$__mist_h_rst" [OPTIONS] [FORMAT]" \
+                "" \
+                "$__mist_h_hdr"Options:"$__mist_h_rst" \
+                "  "$__mist_h_opt"-h, --help"$__mist_h_rst"     Show this help message" \
+                "  "$__mist_h_opt"-n, --newline"$__mist_h_rst"  Print with newline" \
+                "" \
+                "$__mist_h_hdr"Format Specifiers:"$__mist_h_rst" \
+                "  "$__mist_h_spec"%d"$__mist_h_rst"  Day (01-31)    "$__mist_h_spec"%H"$__mist_h_rst"  Hour (24h)" \
+                "  "$__mist_h_spec"%w"$__mist_h_rst"  Weekday (Sun)  "$__mist_h_spec"%h"$__mist_h_rst"  Hour (12h)" \
+                "  "$__mist_h_spec"%M"$__mist_h_rst"  Month (Jan)    "$__mist_h_spec"%I"$__mist_h_rst"  AM/PM" \
+                "  "$__mist_h_spec"%Y"$__mist_h_rst"  Full Year      "$__mist_h_spec"%m"$__mist_h_rst"  Minute" \
+                "  "$__mist_h_spec"%y"$__mist_h_rst"  Short Year     "$__mist_h_spec"%s"$__mist_h_rst"  Second" \
+                "  "$__mist_h_spec"%%"$__mist_h_rst"  Just a %"
+            return
+        end
+
+        test -n "$argv"
+        and set -f output $argv
+        or set -f output "%w %d/%M/%Y %H:%m:%s"
+
+        set -f unix_timestamp (math (path mtime -R /proc) + 1)
+
+        # Never execute external date synchronously while rendering the prompt.
+        # Populate the calendar once in a detached worker; use cached values after.
+        if not set -q __mist_clock_pending
+            set -g __mist_clock_pending 1
+            fish --private -c 'set -U __mist_clock_payload (command date "+%H %d %a %b %y %Y")' >/dev/null 2>&1 &
+        end
+        if set -q __mist_clock_payload[1]
+            set -l date_out (string split ' ' -- "$__mist_clock_payload[1]")
+            if test (count $date_out) -eq 6
+                set -g __mist_clock_date $date_out[2..]
+                set -l hour_now (math -s0 $unix_timestamp / 3600 % 24)
+                set -g __mist_timezone (math \($date_out[1] - $hour_now\) x 3600)
+            end
+        end
+        set -q __mist_timezone; or set -l __mist_timezone 0
+
+        set -f date $__mist_clock_date
+        set -f local_ts (math $unix_timestamp + $__mist_timezone)
+
+        set -f specifiers (string match -rga -- '(?<!%)%([dwMyYHhIms])' $output)
+        set specifiers (string match -rga -- '(\w)(?:\s*\1)*' (path sort $specifiers))
+
+        for spec in $specifiers
+            set -l val
+            switch $spec
+                case d
+                    set val "$date[1]"
+                case w
+                    set val "$date[2]"
+                case M
+                    set val "$date[3]"
+                case y
+                    set val "$date[4]"
+                case Y
+                    set val "$date[5]"
+                case H
+                    set -l hour (math -s 0 $local_ts / 3600 % 24)
+                    set val (printf "%02d" $hour)
+                case h
+                    set -l hour (math -s 0 $local_ts / 3600 % 24 % 12)
+                    test $hour -eq 0
+                    and set hour 12
+                    set val (printf "%02d" $hour)
+                case I
+                    set -l hour (math -s 0 $local_ts / 3600 % 24)
+                    test $hour -ge 12
+                    and set val PM
+                    or set val AM
+                case m
+                    set -l min (math -s 0 $local_ts / 60 % 60)
+                    set val (printf "%02d" $min)
+                case s
+                    set -l sec (math "$local_ts % 60")
+                    set val (printf "%02d" $sec)
+            end
+            set output (string replace -ra -- "(?<!%)%$spec" "$val" $output)
+        end
+
+        set output (string replace -ra -- '%(%+)' '$1' $output)
+
+        set -q _flag_n
+        and printf "%b\n" $output
+        or printf "%b" "$output"
+    end
+
+    function mist_line
+        set -l options h/help p/pad= s/size= a/align= n/newline
+        argparse $options -- $argv
+        or return
+
+        if set -q _flag_h
+            set -l c $__mist_h_cmd
+            set -l o $__mist_h_opt
+            set -l s $__mist_h_spec
+            set -l hd $__mist_h_hdr
+            set -l r $__mist_h_rst
+            printf "%b\n" \
+                "Usage: $c""mist_line$r [OPTIONS] [CHAR]" \
+                "" \
+                "Prints a decorative line using the given character" \
+                "and returns to the start of the line, allowing overwriting" \
+                "Note: Line wrap may cause visual glitches" \
+                "" \
+                "$hd""Options:$r" \
+                "  $o""-h, --help$r     Show this help message and exit" \
+                "  $o""-p, --pad$r      Space between characters (default: 0)" \
+                "  $o""-s, --size$r     Screen relative size in % (1-100, default: 100)" \
+                "  $o""-a, --align$r    Alignment: $s""l/left$r, $s""c/center$r, $s""r/right$r" \
+                "  $o""-n, --newline$r  Print newline instead of returning to first column" \
+                "" \
+                "$hd""Example:$r" \
+                "  $s""\$$r mist_line -p 1 -a right -s 50 -" \
+                "  $s""\$$r other things..." \
+                "$hd""Output:$r"
+            set_color cyan
+            mist_line -p 1 -a right -s 50 -
+            set_color brmagenta
+            echo -n $USER
+            set_color normal
+            echo -n "@$hostname "
+            set_color green
+            prompt_pwd
+            set_color normal
+            echo '❯ '
+            return
+        end
+
+        set -f char "$argv"
+        test -z "$char"
+        and return
+
+        set -f charsize (string length -- "$char")
+
+        set -f size
+        test -n "$_flag_s" -a "$_flag_s" -lt 100
+        and set size $_flag_s
+        or set size 100
+
+        set -f pad
+        set -q _flag_p
+        and set pad $_flag_p
+        or set pad 0
+
+        set -f charcount (math -s0 $COLUMNS / \($charsize + $pad\) x $size / 100)
+        set -f linebuff (string repeat -n $charcount -- "$char"\n)
+
+        set -f padstr (string repeat -n $pad -- ' ')
+        set -f finaline (string join "$padstr" -- $linebuff)
+
+        set -f align
+        set -q _flag_a
+        and set align $_flag_a
+        or set align left
+
+        printf "\e[s"
+
+        switch (string sub -l 1 -- $align)
+            case c
+                set -l linesize (string length -- "$finaline")
+                set -l start (math -s0 -- \($COLUMNS - $linesize\) / 2)
+                printf "\e[%dG" $start
+            case r
+                set -l linesize (string length -- "$finaline")
+                set -l start (math -s0 \($COLUMNS - $linesize\))
+                printf "\e[%dG" $start
+            case l
+                printf "\e[0G"
+            case '*'
+                echo Unknown align: "$align"
+                return
+        end
+
+        printf "%s\r\e[u" $finaline
+
+        if set -q _flag_n
+            printf "\n"
+        end
+    end
+end
